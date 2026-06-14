@@ -64,6 +64,36 @@ export default function SelectionPanel({ nodeIds, edgeIds }) {
         </>
       )}
 
+      {singleEdge && (
+        <>
+          <p className="mt-3 text-xs text-ink/55">Arrow</p>
+          <div className="mt-1 flex gap-1">
+            {[
+              ['none', '—', 'No arrow'],
+              ['end', '→', 'Arrow at end'],
+              ['start', '←', 'Invert (arrow at start)'],
+              ['both', '↔', 'Double arrow'],
+            ].map(([val, glyph, title]) => {
+              const active = (singleEdge.arrow || 'end') === val;
+              return (
+                <button
+                  key={val}
+                  title={title}
+                  onClick={() => actions.updateEdge(singleEdge.id, { arrow: val })}
+                  className={`flex-1 rounded border px-2 py-1 text-sm ${
+                    active
+                      ? 'border-accent bg-accent/10 text-accent'
+                      : 'border-ink/15 text-ink/60 hover:bg-ink/5'
+                  }`}
+                >
+                  {glyph}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       {(singleNode || singleEdge) && (
         <>
           <p className="mt-3 text-xs text-ink/55">Comment</p>

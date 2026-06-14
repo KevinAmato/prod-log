@@ -1,17 +1,17 @@
 import { useState } from 'react';
+import { NodeResizer } from '@xyflow/react';
 import { useStore } from '../../store/StoreContext.jsx';
 import NodeHandles from './NodeHandles.jsx';
 
-// A free text label/field on the canvas. Transparent by default; text color is
-// customisable via the style panel.
-export default function TextNode({ id, data }) {
+// A free text label/field on the canvas. Transparent by default; resizable; text
+// colour customisable via the style panel.
+export default function TextNode({ id, data, selected }) {
   const { actions } = useStore();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(data.text || '');
 
   const style = data.style || {};
   const color = style.text || '#1c1a17';
-  const w = data.width || 200;
 
   const commit = () => {
     setEditing(false);
@@ -19,7 +19,16 @@ export default function TextNode({ id, data }) {
   };
 
   return (
-    <div className="group relative" style={{ width: w }}>
+    <div className="group relative h-full w-full">
+      <NodeResizer
+        isVisible={selected}
+        minWidth={80}
+        minHeight={28}
+        color="#b5562e"
+        onResizeEnd={(_, p) =>
+          actions.updateElement(id, { width: Math.round(p.width), height: Math.round(p.height) })
+        }
+      />
       {data.comment && (
         <span
           title={data.comment}
@@ -29,15 +38,14 @@ export default function TextNode({ id, data }) {
         </span>
       )}
       <div
-        className="rounded px-1 py-0.5"
+        className="h-full w-full rounded px-1 py-0.5"
         style={{ color, background: style.bg || 'transparent' }}
         onDoubleClick={() => setEditing(true)}
       >
         {editing ? (
           <textarea
             autoFocus
-            rows={2}
-            className="nodrag w-full resize-none bg-transparent text-sm outline-none"
+            className="nodrag h-full w-full resize-none bg-transparent text-sm outline-none"
             style={{ color }}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

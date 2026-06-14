@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { NodeResizer } from '@xyflow/react';
 import { useStore } from '../../store/StoreContext.jsx';
 import NodeHandles from './NodeHandles.jsx';
 
 const DIAMOND = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
 
-export default function ShapeNode({ id, data }) {
+// The node fills the React Flow node box (sized by node.width/height), so
+// NodeResizer can drive the dimensions. ellipse uses border-radius:50% — square
+// box ⇒ circle, non-square ⇒ oval.
+export default function ShapeNode({ id, data, selected }) {
   const { actions } = useStore();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(data.text || '');
@@ -13,16 +17,12 @@ export default function ShapeNode({ id, data }) {
   const style = data.style || {};
   const bg = style.bg || '#ffffff';
   const color = style.text || '#1c1a17';
-  const w = data.width || 168;
-  const h = data.height || 96;
 
   const shapeStyle = {
-    width: w,
-    height: h,
     background: bg,
     color,
-    ...(shape === 'ellipse' ? { borderRadius: '9999px' } : {}),
-    ...(shape === 'diamond' ? { clipPath: DIAMOND } : { borderRadius: 10 }),
+    borderRadius: shape === 'ellipse' ? '50%' : shape === 'diamond' ? 0 : 10,
+    ...(shape === 'diamond' ? { clipPath: DIAMOND } : {}),
   };
 
   const commit = () => {
@@ -31,7 +31,16 @@ export default function ShapeNode({ id, data }) {
   };
 
   return (
-    <div className="group relative" style={{ width: w, height: h }}>
+    <div className="group relative h-full w-full">
+      <NodeResizer
+        isVisible={selected}
+        minWidth={64}
+        minHeight={40}
+        color="#b5562e"
+        onResizeEnd={(_, p) =>
+          actions.updateElement(id, { width: Math.round(p.width), height: Math.round(p.height) })
+        }
+      />
       {data.comment && (
         <span
           title={data.comment}

@@ -16,6 +16,13 @@ export default function CanvasToolbar({ wrapperRef }) {
     actions.addElement(factory(pos));
   };
 
+  // Ellipse starts square so it's a true circle; resize to make an oval.
+  const SIZES = {
+    rectangle: { width: 168, height: 96 },
+    ellipse: { width: 120, height: 120 },
+    diamond: { width: 140, height: 100 },
+  };
+
   const addShape = (shape) =>
     place((pos) => ({
       id: newId(),
@@ -23,8 +30,7 @@ export default function CanvasToolbar({ wrapperRef }) {
       shape,
       x: pos.x,
       y: pos.y,
-      width: 168,
-      height: 96,
+      ...SIZES[shape],
       text: '',
       style: { bg: '#ffffff', text: '#1c1a17' },
       comment: '',

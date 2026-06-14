@@ -1,17 +1,18 @@
-import { getBezierPath, useInternalNode, EdgeLabelRenderer } from '@xyflow/react';
+import { getStraightPath, useInternalNode, EdgeLabelRenderer } from '@xyflow/react';
 import { getEdgeParams } from '../../lib/floatingEdge.js';
 
 const ACCENT = '#b5562e';
 
-// Edge whose endpoints float to each node's border. Renders a comment chip at
-// the midpoint when the edge has a comment.
-export default function FloatingEdge({ id, source, target, markerEnd, style, data }) {
+// Edge whose endpoints float to each node's border. A straight path keeps the
+// arrowhead correctly aligned along the line. An invisible wide path widens the
+// clickable area without changing the visible stroke.
+export default function FloatingEdge({ id, source, target, markerStart, markerEnd, style, data }) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
   if (!sourceNode || !targetNode) return null;
 
   const { sx, sy, tx, ty } = getEdgeParams(sourceNode, targetNode);
-  const [path, labelX, labelY] = getBezierPath({
+  const [path, labelX, labelY] = getStraightPath({
     sourceX: sx,
     sourceY: sy,
     targetX: tx,
@@ -20,10 +21,13 @@ export default function FloatingEdge({ id, source, target, markerEnd, style, dat
 
   return (
     <>
+      {/* Fat transparent hit area — easy to click, no visible width change. */}
+      <path d={path} fill="none" stroke="transparent" strokeWidth={20} className="react-flow__edge-interaction" />
       <path
         id={id}
         className="react-flow__edge-path"
         d={path}
+        markerStart={markerStart}
         markerEnd={markerEnd}
         style={{ stroke: ACCENT, strokeWidth: 1.5, ...style }}
       />

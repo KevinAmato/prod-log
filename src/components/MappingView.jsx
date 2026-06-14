@@ -67,9 +67,18 @@ function Canvas({ onOpenDecision }) {
       return state.map.elements.map((el) => {
         const existing = byId.get(el.id);
         const data = nodeData(el);
+        // Size only seeds new nodes; once mounted, NodeResizer owns the box (so
+        // a live resize isn't clobbered by reconciliation).
+        const sized = el.type === 'shape' || el.type === 'text';
         return existing
           ? { ...existing, type: el.type, data }
-          : { id: el.id, type: el.type, position: { x: el.x, y: el.y }, data };
+          : {
+              id: el.id,
+              type: el.type,
+              position: { x: el.x, y: el.y },
+              data,
+              ...(sized ? { width: el.width, height: el.height } : {}),
+            };
       });
     });
   }, [state.map.elements, setNodes]);
@@ -78,12 +87,14 @@ function Canvas({ onOpenDecision }) {
     setEdges((prev) => {
       const byId = new Map(prev.map((e) => [e.id, e]));
       return state.map.edges.map((e) => {
+        const arrow = e.arrow || 'end';
         const base = {
           id: e.id,
           source: e.source,
           target: e.target,
           type: 'floating',
-          markerEnd: MARKER,
+          markerEnd: arrow === 'end' || arrow === 'both' ? MARKER : undefined,
+          markerStart: arrow === 'start' || arrow === 'both' ? MARKER : undefined,
           data: { comment: e.comment },
         };
         const existing = byId.get(e.id);

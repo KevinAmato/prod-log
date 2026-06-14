@@ -167,7 +167,10 @@ export function StoreProvider({ children }) {
           if (s.map.edges.some((e) => e.id === id)) return s;
           return {
             ...s,
-            map: { ...s.map, edges: [...s.map.edges, { id, source, target, comment: '' }] },
+            map: {
+              ...s.map,
+              edges: [...s.map.edges, { id, source, target, comment: '', arrow: 'end' }],
+            },
           };
         });
       },
