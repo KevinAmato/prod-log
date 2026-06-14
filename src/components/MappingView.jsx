@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -7,75 +7,109 @@ import {
   Controls,
   MiniMap,
   MarkerType,
+  ConnectionMode,
   useReactFlow,
   useNodesState,
   useEdgesState,
-  addEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useStore } from '../store/StoreContext.jsx';
 import InitiativeNode from './InitiativeNode.jsx';
+import ShapeNode from './canvas/ShapeNode.jsx';
+import TextNode from './canvas/TextNode.jsx';
+import FloatingEdge from './canvas/FloatingEdge.jsx';
+import CanvasToolbar from './canvas/CanvasToolbar.jsx';
+import SelectionPanel from './canvas/SelectionPanel.jsx';
 
-const nodeTypes = { initiative: InitiativeNode };
-const DRAG_MIME = 'application/diligence-initiative';
-
-// Directional, on-brand connectors so edges read as dependencies / roadmap paths.
+const nodeTypes = { initiative: InitiativeNode, shape: ShapeNode, text: TextNode };
+const edgeTypes = { floating: FloatingEdge };
 const ACCENT = '#b5562e';
-const defaultEdgeOptions = {
-  markerEnd: { type: MarkerType.ArrowClosed, color: ACCENT, width: 18, height: 18 },
-  style: { stroke: ACCENT, strokeWidth: 1.5 },
-};
+const DRAG_MIME = 'application/diligence-initiative';
+const MARKER = { type: MarkerType.ArrowClosed, color: ACCENT, width: 18, height: 18 };
+
+// Build the React Flow `data` payload for a stored element.
+function nodeData(el) {
+  if (el.type === 'initiative') {
+    return { decisionId: el.decisionId, style: el.style, comment: el.comment };
+  }
+  if (el.type === 'shape') {
+    return {
+      shape: el.shape,
+      text: el.text,
+      style: el.style,
+      comment: el.comment,
+      width: el.width,
+      height: el.height,
+    };
+  }
+  return { text: el.text, style: el.style, comment: el.comment, width: el.width };
+}
 
 function Canvas({ onOpenDecision }) {
   const { state, actions } = useStore();
   const { screenToFlowPosition } = useReactFlow();
-  // Open by default on desktop; collapsed on phones so the canvas is visible.
+  const wrapperRef = useRef(null);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [selection, setSelection] = useState({ nodeIds: [], edgeIds: [] });
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window === 'undefined' || window.innerWidth >= 640,
   );
 
-  // Seed React Flow from the persisted map LAYOUT (positions + edges). Card
-  // content is read live by InitiativeNode, so only layout lives here. Seeded
-  // once on mount; persistence flows back to the store on drag/connect/delete.
-  const initialNodes = useMemo(
-    () =>
-      Object.entries(state.map.nodes)
-        .filter(([id]) => state.decisions.some((d) => d.id === id))
-        .map(([id, pos]) => ({ id, type: 'initiative', position: pos, data: { decisionId: id } })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-  const initialEdges = useMemo(
-    () => state.map.edges.map((e) => ({ ...e })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  // ── Store → canvas sync ──────────────────────────────────────────────
+  // Reconcile RF nodes from the store: add new, drop removed, refresh data
+  // (colours/comment/text). Positions are preserved from RF (drag is the source
+  // until drag-stop persists), so live edits never cause a node to jump.
+  useEffect(() => {
+    setNodes((prev) => {
+      const byId = new Map(prev.map((n) => [n.id, n]));
+      return state.map.elements.map((el) => {
+        const existing = byId.get(el.id);
+        const data = nodeData(el);
+        return existing
+          ? { ...existing, type: el.type, data }
+          : { id: el.id, type: el.type, position: { x: el.x, y: el.y }, data };
+      });
+    });
+  }, [state.map.elements, setNodes]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  useEffect(() => {
+    setEdges((prev) => {
+      const byId = new Map(prev.map((e) => [e.id, e]));
+      return state.map.edges.map((e) => {
+        const base = {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: 'floating',
+          markerEnd: MARKER,
+          data: { comment: e.comment },
+        };
+        const existing = byId.get(e.id);
+        return existing ? { ...existing, ...base } : base;
+      });
+    });
+  }, [state.map.edges, setEdges]);
 
+  // ── Canvas → store persistence ───────────────────────────────────────
   const onNodeDragStop = useCallback(
-    (_, node) => actions.moveMapNode(node.id, node.position),
+    (_, node, dragged) => {
+      (dragged && dragged.length ? dragged : [node]).forEach((n) =>
+        actions.moveElement(n.id, n.position),
+      );
+    },
     [actions],
   );
 
   const onConnect = useCallback(
-    (params) => {
-      const id = `e-${params.source}-${params.target}`;
-      setEdges((eds) => addEdge({ ...params, id }, eds));
-      actions.addMapEdge({ source: params.source, target: params.target });
-    },
-    [actions, setEdges],
+    (params) => actions.addMapEdge({ source: params.source, target: params.target }),
+    [actions],
   );
 
-  const onNodesDelete = useCallback(
-    (deleted) => actions.removeMapNodes(deleted.map((n) => n.id)),
-    [actions],
-  );
-  const onEdgesDelete = useCallback(
-    (deleted) => actions.removeMapEdges(deleted.map((e) => e.id)),
-    [actions],
-  );
+  const onSelectionChange = useCallback(({ nodes: sn, edges: se }) => {
+    setSelection({ nodeIds: sn.map((n) => n.id), edgeIds: se.map((e) => e.id) });
+  }, []);
 
   const onDragOver = useCallback((e) => {
     e.preventDefault();
@@ -88,44 +122,50 @@ function Canvas({ onOpenDecision }) {
       const id = e.dataTransfer.getData(DRAG_MIME);
       if (!id) return;
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-      actions.placeOnMap(id, position);
-      setNodes((nds) =>
-        nds.some((n) => n.id === id)
-          ? nds
-          : nds.concat({ id, type: 'initiative', position, data: { decisionId: id } }),
-      );
+      actions.placeInitiative(id, position);
     },
-    [screenToFlowPosition, actions, setNodes],
+    [screenToFlowPosition, actions],
   );
 
-  // Drop orphaned canvas nodes whose decision was deleted elsewhere.
+  // Delete selection on Delete/Backspace — but only when not editing a field
+  // (RF's own delete key is disabled, so typing a comment can't nuke the node).
   useEffect(() => {
-    const valid = new Set(state.decisions.map((d) => d.id));
-    setNodes((nds) => {
-      const filtered = nds.filter((n) => valid.has(n.id));
-      return filtered.length === nds.length ? nds : filtered;
-    });
-  }, [state.decisions, setNodes]);
+    const onKey = (e) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const t = document.activeElement;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (selection.nodeIds.length) actions.removeElements(selection.nodeIds);
+      if (selection.edgeIds.length) actions.removeMapEdges(selection.edgeIds);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selection, actions]);
 
-  const placedIds = new Set(nodes.map((n) => n.id));
-  const unplaced = state.decisions.filter((d) => !placedIds.has(d.id));
+  const placedInitiativeIds = new Set(
+    state.map.elements.filter((el) => el.type === 'initiative').map((el) => el.decisionId),
+  );
+  const unplaced = state.decisions.filter((d) => !placedInitiativeIds.has(d.id));
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full" ref={wrapperRef}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        connectionMode={ConnectionMode.Loose}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeDragStop={onNodeDragStop}
-        onNodesDelete={onNodesDelete}
-        onEdgesDelete={onEdgesDelete}
-        onNodeDoubleClick={(_, n) => onOpenDecision?.(n.id)}
+        onSelectionChange={onSelectionChange}
+        onNodeDoubleClick={(_, n) => n.type === 'initiative' && onOpenDecision?.(n.id)}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        defaultEdgeOptions={defaultEdgeOptions}
+        deleteKeyCode={null}
+        panOnDrag={[1, 2]}
+        selectionOnDrag
+        zoomOnDoubleClick={false}
         fitView
         minZoom={0.2}
         maxZoom={2}
@@ -136,12 +176,14 @@ function Canvas({ onOpenDecision }) {
         <MiniMap className="hidden md:block" pannable zoomable />
       </ReactFlow>
 
-      {/* Empty-canvas hint */}
+      <CanvasToolbar wrapperRef={wrapperRef} />
+      <SelectionPanel nodeIds={selection.nodeIds} edgeIds={selection.edgeIds} />
+
       {nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="max-w-xs text-center text-sm text-ink/40">
-            Drag initiatives from the panel onto the canvas. Drag from a card's right edge to
-            connect it to another.
+            Drag initiatives from the panel onto the canvas, or add shapes/text from the
+            toolbar. Drag from any edge of an element to connect it.
           </p>
         </div>
       )}
@@ -189,8 +231,6 @@ function Canvas({ onOpenDecision }) {
   );
 }
 
-// React Flow hooks need the provider; keep it thin so <Canvas/> remounts (and
-// re-seeds from the store) whenever the Mapping tab is opened.
 export default function MappingView({ onOpenDecision }) {
   return (
     <ReactFlowProvider>

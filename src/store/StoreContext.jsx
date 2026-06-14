@@ -85,52 +85,79 @@ export function StoreProvider({ children }) {
 
       deleteDecision(id) {
         setState((s) => {
-          // Also remove its map node + any edges touching it.
-          const nodes = { ...s.map.nodes };
-          delete nodes[id];
+          // Also remove its canvas element + any edges touching it.
+          const elements = s.map.elements.filter((e) => e.id !== id);
           const edges = s.map.edges.filter((e) => e.source !== id && e.target !== id);
           return {
             ...s,
             decisions: s.decisions.filter((d) => d.id !== id),
-            map: { ...s.map, nodes, edges },
+            map: { ...s.map, elements, edges },
           };
         });
       },
 
       // ── Mapping / Roadmap canvas (layout only) ────────────────────────
-      placeOnMap(decisionId, position) {
+      // Place a backlog initiative on the canvas (id === decisionId).
+      placeInitiative(decisionId, position) {
+        setState((s) => {
+          if (s.map.elements.some((e) => e.id === decisionId)) return s;
+          const el = {
+            id: decisionId,
+            type: 'initiative',
+            decisionId,
+            x: position.x,
+            y: position.y,
+            style: {},
+            comment: '',
+          };
+          return { ...s, map: { ...s.map, elements: [...s.map.elements, el] } };
+        });
+      },
+
+      // Add a shape or text element. Caller supplies a unique id (newId()).
+      addElement(element) {
+        setState((s) => ({
+          ...s,
+          map: { ...s.map, elements: [...s.map.elements, element] },
+        }));
+      },
+
+      moveElement(id, position) {
         setState((s) => ({
           ...s,
           map: {
             ...s.map,
-            nodes: { ...s.map.nodes, [decisionId]: { x: position.x, y: position.y } },
+            elements: s.map.elements.map((e) =>
+              e.id === id ? { ...e, x: position.x, y: position.y } : e,
+            ),
           },
         }));
       },
 
-      moveMapNode(decisionId, position) {
-        setState((s) => {
-          if (!s.map.nodes[decisionId]) return s;
-          return {
-            ...s,
-            map: {
-              ...s.map,
-              nodes: { ...s.map.nodes, [decisionId]: { x: position.x, y: position.y } },
-            },
-          };
-        });
+      updateElement(id, patch) {
+        setState((s) => ({
+          ...s,
+          map: {
+            ...s.map,
+            elements: s.map.elements.map((e) =>
+              e.id === id
+                ? { ...e, ...patch, style: patch.style ? { ...e.style, ...patch.style } : e.style }
+                : e,
+            ),
+          },
+        }));
       },
 
-      removeMapNodes(ids) {
+      removeElements(ids) {
         const set = new Set(ids);
-        setState((s) => {
-          const nodes = { ...s.map.nodes };
-          ids.forEach((id) => delete nodes[id]);
-          const edges = s.map.edges.filter(
-            (e) => !set.has(e.source) && !set.has(e.target),
-          );
-          return { ...s, map: { ...s.map, nodes, edges } };
-        });
+        setState((s) => ({
+          ...s,
+          map: {
+            ...s.map,
+            elements: s.map.elements.filter((e) => !set.has(e.id)),
+            edges: s.map.edges.filter((e) => !set.has(e.source) && !set.has(e.target)),
+          },
+        }));
       },
 
       addMapEdge({ source, target }) {
@@ -138,8 +165,21 @@ export function StoreProvider({ children }) {
         setState((s) => {
           const id = `e-${source}-${target}`;
           if (s.map.edges.some((e) => e.id === id)) return s;
-          return { ...s, map: { ...s.map, edges: [...s.map.edges, { id, source, target }] } };
+          return {
+            ...s,
+            map: { ...s.map, edges: [...s.map.edges, { id, source, target, comment: '' }] },
+          };
         });
+      },
+
+      updateEdge(id, patch) {
+        setState((s) => ({
+          ...s,
+          map: {
+            ...s.map,
+            edges: s.map.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+          },
+        }));
       },
 
       removeMapEdges(ids) {

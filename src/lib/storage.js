@@ -20,13 +20,41 @@ export const emptyState = () => ({
     apiKey: null, // stored locally only; never sent anywhere except Anthropic
     model: 'claude-opus-4-8',
   },
-  // Mapping/Roadmap canvas LAYOUT only — node positions + edges. Card *content*
-  // is read live from `decisions`, so the map never duplicates initiative data.
+  // Mapping/Roadmap canvas. `elements` holds every canvas item:
+  //  - initiative: { id, type:'initiative', decisionId, x, y, style, comment }
+  //      (content read live from `decisions`; presence here == "placed")
+  //  - shape:      { id, type:'shape', shape, x, y, width, height, text, style, comment }
+  //  - text:       { id, type:'text', x, y, width, text, style, comment }
+  // Edges: { id, source, target, comment }. Layout only — never duplicates
+  // initiative content.
   map: {
-    nodes: {}, // { [decisionId]: { x, y } } — presence here == "placed on the map"
-    edges: [], // [{ id, source, target }]
+    elements: [],
+    edges: [],
   },
 });
+
+// Tolerates the legacy `{ nodes: {decisionId:{x,y}}, edges }` shape and upgrades
+// it to the unified `elements` model.
+export function normalizeMap(m) {
+  if (!m || typeof m !== 'object') return { elements: [], edges: [] };
+  const edges = Array.isArray(m.edges) ? m.edges : [];
+  if (Array.isArray(m.elements)) return { elements: m.elements, edges };
+  const elements = [];
+  if (m.nodes && typeof m.nodes === 'object') {
+    for (const [decisionId, pos] of Object.entries(m.nodes)) {
+      elements.push({
+        id: decisionId,
+        type: 'initiative',
+        decisionId,
+        x: pos.x,
+        y: pos.y,
+        style: {},
+        comment: '',
+      });
+    }
+  }
+  return { elements, edges };
+}
 
 export function loadState() {
   try {
@@ -42,7 +70,7 @@ export function loadState() {
       profile: { ...base.profile, ...(parsed.profile || {}) },
       settings: { ...base.settings, ...(parsed.settings || {}) },
       decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
-      map: { ...base.map, ...(parsed.map || {}) },
+      map: normalizeMap(parsed.map),
     };
   } catch (err) {
     console.error('[storage] Failed to load state, starting fresh:', err);
@@ -81,7 +109,7 @@ export function parseImportedBlob(text) {
     profile: { ...base.profile, ...(parsed.profile || {}) },
     settings: { ...base.settings, ...(parsed.settings || {}) },
     decisions: parsed.decisions,
-    map: { ...base.map, ...(parsed.map || {}) },
+    map: normalizeMap(parsed.map),
   };
 }
 
