@@ -61,7 +61,7 @@ export default function Backlog({ onOpen }) {
       {state.decisions.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
           <select
-            className="rounded-md border border-ink/20 bg-white px-2 py-1 text-sm"
+            className="rounded-md border border-ink/20 bg-white px-2 py-2 text-sm"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -73,7 +73,7 @@ export default function Backlog({ onOpen }) {
             ))}
           </select>
           <select
-            className="rounded-md border border-ink/20 bg-white px-2 py-1 text-sm"
+            className="rounded-md border border-ink/20 bg-white px-2 py-2 text-sm"
             value={sort}
             onChange={(e) => setSort(e.target.value)}
           >
@@ -105,7 +105,7 @@ export default function Backlog({ onOpen }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="truncate font-medium">{d.title}</h3>
+                  <h3 className="line-clamp-2 font-medium">{d.title}</h3>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink/50">
                     <Pill>{d.type}</Pill>
                     {decisionLines(d).map((l) => (

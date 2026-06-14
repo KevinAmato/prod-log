@@ -193,7 +193,7 @@ function JourneyCard({ decision, entry }) {
               {fmt(entry.timestamp)}
               {entry.editedAt && ' · edited'}
             </p>
-            <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => setEditing(true)}>
+            <Button variant="ghost" className="px-3 text-xs" onClick={() => setEditing(true)}>
               Edit
             </Button>
           </div>

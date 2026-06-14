@@ -48,7 +48,7 @@ export default function DecisionView({ decision, onBack }) {
         <div className="flex items-center gap-2">
           <label className="text-xs text-ink/50">Status</label>
           <select
-            className="rounded-md border border-ink/20 bg-white px-2 py-1 text-sm"
+            className="rounded-md border border-ink/20 bg-white px-2 py-2 text-sm"
             value={decision.status}
             onChange={(e) => actions.updateDecision(decision.id, { status: e.target.value })}
           >

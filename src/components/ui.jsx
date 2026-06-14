@@ -2,8 +2,9 @@
 // logic and the evidence ledger, not a heavy component kit.
 
 export function Button({ variant = 'primary', className = '', ...props }) {
+  // min-h-[40px] keeps every button a comfortable touch target on mobile.
   const base =
-    'inline-flex items-center justify-center rounded-md px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
+    'inline-flex min-h-[40px] items-center justify-center rounded-md px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
   const variants = {
     primary: 'bg-ink text-paper hover:bg-ink/90',
     accent: 'bg-accent text-white hover:bg-accent/90',
@@ -24,8 +25,10 @@ export function Field({ label, hint, children }) {
   );
 }
 
+// text-base (16px) on mobile prevents iOS Safari from auto-zooming on focus;
+// drops to text-sm from sm: up to keep desktop density.
 export const inputClass =
-  'w-full rounded-md border border-ink/20 bg-white px-3 py-2 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent';
+  'w-full rounded-md border border-ink/20 bg-white px-3 py-2.5 text-base outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:py-2 sm:text-sm';
 
 export function Card({ className = '', ...props }) {
   return (

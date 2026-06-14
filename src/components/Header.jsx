@@ -12,7 +12,11 @@ export default function Header({ onOpenSettings, onHome }) {
           </span>
         </button>
         <div className="flex items-center gap-1">
-          <BackupControls variant="compact" />
+          {/* Export/Import live on the prominent backlog card on mobile; keep the
+              header uncluttered on small screens. */}
+          <span className="hidden items-center gap-1 sm:flex">
+            <BackupControls variant="compact" />
+          </span>
           <Button variant="outline" onClick={onOpenSettings}>
             Settings
           </Button>
