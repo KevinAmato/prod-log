@@ -20,6 +20,12 @@ export const emptyState = () => ({
     apiKey: null, // stored locally only; never sent anywhere except Anthropic
     model: 'claude-opus-4-8',
   },
+  // Mapping/Roadmap canvas LAYOUT only — node positions + edges. Card *content*
+  // is read live from `decisions`, so the map never duplicates initiative data.
+  map: {
+    nodes: {}, // { [decisionId]: { x, y } } — presence here == "placed on the map"
+    edges: [], // [{ id, source, target }]
+  },
 });
 
 export function loadState() {
@@ -36,6 +42,7 @@ export function loadState() {
       profile: { ...base.profile, ...(parsed.profile || {}) },
       settings: { ...base.settings, ...(parsed.settings || {}) },
       decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
+      map: { ...base.map, ...(parsed.map || {}) },
     };
   } catch (err) {
     console.error('[storage] Failed to load state, starting fresh:', err);
@@ -74,6 +81,7 @@ export function parseImportedBlob(text) {
     profile: { ...base.profile, ...(parsed.profile || {}) },
     settings: { ...base.settings, ...(parsed.settings || {}) },
     decisions: parsed.decisions,
+    map: { ...base.map, ...(parsed.map || {}) },
   };
 }
 

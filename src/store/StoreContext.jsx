@@ -84,9 +84,69 @@ export function StoreProvider({ children }) {
       },
 
       deleteDecision(id) {
+        setState((s) => {
+          // Also remove its map node + any edges touching it.
+          const nodes = { ...s.map.nodes };
+          delete nodes[id];
+          const edges = s.map.edges.filter((e) => e.source !== id && e.target !== id);
+          return {
+            ...s,
+            decisions: s.decisions.filter((d) => d.id !== id),
+            map: { ...s.map, nodes, edges },
+          };
+        });
+      },
+
+      // ── Mapping / Roadmap canvas (layout only) ────────────────────────
+      placeOnMap(decisionId, position) {
         setState((s) => ({
           ...s,
-          decisions: s.decisions.filter((d) => d.id !== id),
+          map: {
+            ...s.map,
+            nodes: { ...s.map.nodes, [decisionId]: { x: position.x, y: position.y } },
+          },
+        }));
+      },
+
+      moveMapNode(decisionId, position) {
+        setState((s) => {
+          if (!s.map.nodes[decisionId]) return s;
+          return {
+            ...s,
+            map: {
+              ...s.map,
+              nodes: { ...s.map.nodes, [decisionId]: { x: position.x, y: position.y } },
+            },
+          };
+        });
+      },
+
+      removeMapNodes(ids) {
+        const set = new Set(ids);
+        setState((s) => {
+          const nodes = { ...s.map.nodes };
+          ids.forEach((id) => delete nodes[id]);
+          const edges = s.map.edges.filter(
+            (e) => !set.has(e.source) && !set.has(e.target),
+          );
+          return { ...s, map: { ...s.map, nodes, edges } };
+        });
+      },
+
+      addMapEdge({ source, target }) {
+        if (!source || !target || source === target) return;
+        setState((s) => {
+          const id = `e-${source}-${target}`;
+          if (s.map.edges.some((e) => e.id === id)) return s;
+          return { ...s, map: { ...s.map, edges: [...s.map.edges, { id, source, target }] } };
+        });
+      },
+
+      removeMapEdges(ids) {
+        const set = new Set(ids);
+        setState((s) => ({
+          ...s,
+          map: { ...s.map, edges: s.map.edges.filter((e) => !set.has(e.id)) },
         }));
       },
 

@@ -169,6 +169,26 @@ descriptive **archetype tags**:
 | **Fully evidenced** (green) | All gates reached and none skipped |
 | **needs post-launch review** | Shipped but the post-launch gate is unfilled |
 
+## 9b. Mapping / Roadmap view
+
+A second top-level tab ("Mapping") opens an infinite, zoomable canvas (built on
+**React Flow** / `@xyflow/react`) for arranging initiatives spatially — dependencies,
+sequencing, discovery trees, theme clusters.
+
+- **Canvas:** pan (drag), zoom (wheel / controls), dotted-grid background, minimap
+  (desktop), touch pan/zoom on mobile.
+- **Unplaced sidebar:** lists only backlog initiatives not yet on the map; drag one onto
+  the canvas to place it at the cursor. Collapsed by default on phones.
+- **Rich nodes:** each card reads its content live from the central store by id — title,
+  type, current gate, and diligence tags — so any edit elsewhere reflects instantly.
+- **Connectors:** drag from a card's right edge to another card to draw a directional
+  dependency arrow. Double-click a node to open that decision.
+- **Single source of truth:** the map stores only *layout* (`map.nodes` positions +
+  `map.edges`) in the same `localStorage` blob; it never duplicates initiative content.
+  Layout persists across refreshes.
+- **Structural, not freeform:** discrete backlog cards + connecting arrows (sticky notes
+  are a planned addition); no freehand drawing.
+
 ## 10. Success metrics (for the tool itself)
 
 Single-user v1, so success = behaviour change in the author: decisions actually get logged;
