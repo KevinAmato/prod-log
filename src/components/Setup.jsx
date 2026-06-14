@@ -4,7 +4,7 @@ import { ARCHETYPES } from '../config/gates.js';
 import { Button, Field, inputClass } from './ui.jsx';
 
 // First-run profile capture. This profile is injected into the AI's context for
-// every gate, so questions are tailored (e.g. it knows to ask about LP vs GP).
+// every gate, so questions are tailored to the PM's product and segments.
 export default function Setup() {
   const { actions } = useStore();
   const [pmType, setPmType] = useState('');
@@ -68,20 +68,20 @@ export default function Setup() {
             className={inputClass}
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
-            placeholder="e.g. Holtara"
+            placeholder="e.g. Acme Analytics"
             required
           />
         </Field>
 
         <Field
           label="Main product lines / segments"
-          hint="Comma-separated — e.g. Corporate, GP, LP"
+          hint="Comma-separated — e.g. Enterprise, Mid-market, Self-serve"
         >
           <input
             className={inputClass}
             value={linesText}
             onChange={(e) => setLinesText(e.target.value)}
-            placeholder="Corporate, GP, LP"
+            placeholder="Enterprise, Mid-market, Self-serve"
           />
         </Field>
 

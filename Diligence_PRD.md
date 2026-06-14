@@ -45,7 +45,7 @@ The data model *is* the product. Five entities:
 ### Decision
 The thing being evaluated.
 - `id`
-- `title` (e.g. "Add bulk CSV export to GP dashboard")
+- `title` (e.g. "Add bulk CSV export to the admin dashboard")
 - `type` (new feature / enhancement / kill-or-deprecate / pricing change / partnership / other)
 - `product_line` (which part of the product it belongs to — derived from the PM profile setup)
 - `status` (active / shipped / killed / parked)
@@ -101,7 +101,7 @@ Notes:
 
 ### 7.1 Onboarding / profile setup (first run)
 1. User answers a short set of questions: what type of PM they are, what product/platform they own, what the main product lines/segments are.
-2. This profile is stored and injected into the AI's context for every subsequent gate, so questions are tailored (e.g. it knows to ask about LP vs GP segments).
+2. This profile is stored and injected into the AI's context for every subsequent gate, so questions are tailored (e.g. it knows the PM's own customer segments).
 3. The backlog is initialised (empty).
 
 ### 7.2 Creating a decision

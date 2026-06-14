@@ -40,7 +40,7 @@ export default function SettingsModal({ onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-xl bg-paper p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-paper p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold">Settings</h2>

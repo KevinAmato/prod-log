@@ -6,3 +6,6 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 npm-debug.log*
+
+# external feedback — not for the public repo
+MVP_Feedback_Diligence.pdf

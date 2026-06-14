@@ -39,7 +39,7 @@ export default function NewDecisionModal({ onClose, onCreated }) {
       onClick={onClose}
     >
       <form
-        className="w-full max-w-md rounded-xl bg-paper p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-paper p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
       >
@@ -54,7 +54,7 @@ export default function NewDecisionModal({ onClose, onCreated }) {
               className={inputClass}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Add bulk CSV export to GP dashboard"
+              placeholder="e.g. Add bulk CSV export to the admin dashboard"
               autoFocus
             />
           </Field>

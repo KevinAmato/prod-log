@@ -35,7 +35,7 @@ All persisted in `localStorage` as a single JSON blob under one key (e.g. `dilig
   profile: {
     pmType: string,
     productName: string,
-    productLines: string[],   // e.g. ["Corporate", "GP", "LP"]
+    productLines: string[],   // e.g. ["Enterprise", "Mid-market", "Self-serve"]
     setupComplete: boolean
   },
   decisions: [
@@ -158,7 +158,7 @@ Advancement and skipping are **UI actions**, not AI decisions. The AI asks and p
 - Gate 9 post-launch review surfacing (e.g. nudge decisions that shipped but have no Gate 9 entry).
 
 ### Phase 4 — Polish & dogfood (ongoing)
-- Use it for real Holtara decisions.
+- Use it for your real decisions at work.
 - Tune `gates.js` questions and evidence bars based on what actually helps.
 - Only after it changes your behaviour: consider generalising to other PM types.
 

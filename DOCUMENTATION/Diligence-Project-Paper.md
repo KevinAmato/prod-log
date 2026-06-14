@@ -209,8 +209,8 @@ One JSON object under `localStorage["diligence_state_v1"]`:
   "profile": {
     "pmType": "B2B SaaS PM",
     "archetype": "b2b-saas",        // drives gate overlays
-    "productName": "Holtara",
-    "productLines": ["Corporate", "GP", "LP"],
+    "productName": "Acme Analytics",
+    "productLines": ["Enterprise", "Mid-market", "Self-serve"],
     "setupComplete": true
   },
   "settings": {
@@ -222,7 +222,7 @@ One JSON object under `localStorage["diligence_state_v1"]`:
       "id": "…",
       "title": "Introduce usage-based tier",
       "type": "pricing change",
-      "productLines": ["GP", "LP"],
+      "productLines": ["Enterprise", "Mid-market"],
       "status": "active",            // active | shipped | killed | parked
       "currentGateOrder": 3,
       "createdAt": "…", "updatedAt": "…",
