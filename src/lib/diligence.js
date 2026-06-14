@@ -47,6 +47,31 @@ export function diligenceLabel(decision) {
   return label;
 }
 
+// Qualitative diligence archetypes (per MVP feedback §4.1) — descriptive tags
+// instead of a single gameable number. Keyed off gate *semantics* (validation
+// flag, gate key), so they survive the per-decision overlay funnels rather than
+// hard-coding gate numbers.
+const SIZING_KEYS = ['opportunity-sizing', 'prioritisation', 'revenue-margin'];
+
+export function diligenceTags(decision) {
+  const gates = decisionGates(decision);
+  const evidence = decision.evidence || [];
+  const skipped = evidence.filter((e) => e.status === 'skipped');
+  const gateOf = (order) => gates.find((g) => g.order === order);
+
+  const tags = [];
+  if (skipped.some((e) => gateOf(e.gateOrder)?.isValidationGate)) {
+    tags.push({ label: 'Unvalidated', tone: 'flag' });
+  }
+  if (skipped.some((e) => SIZING_KEYS.includes(gateOf(e.gateOrder)?.key))) {
+    tags.push({ label: 'Sizing missing', tone: 'warn' });
+  }
+  if (evidence.length === gates.length && skipped.length === 0) {
+    tags.push({ label: 'Fully evidenced', tone: 'good' });
+  }
+  return tags;
+}
+
 // Decisions that shipped but never closed the loop (no post-launch entry). This
 // is what makes Diligence a *learning* instrument, not just a capture tool.
 export function needsPostLaunchReview(decision) {

@@ -44,6 +44,7 @@ export function Pill({ children, tone = 'neutral' }) {
   const tones = {
     neutral: 'bg-ink/5 text-ink/70',
     flag: 'bg-accent/10 text-accent',
+    warn: 'bg-amber-500/15 text-amber-700',
     good: 'bg-emerald-600/10 text-emerald-700',
   };
   return (

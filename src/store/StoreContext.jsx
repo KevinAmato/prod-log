@@ -11,15 +11,18 @@ const StoreContext = createContext(null);
 
 export function StoreProvider({ children }) {
   const [state, setState] = useState(loadState);
+  const [storageFull, setStorageFull] = useState(false);
 
-  // Persist the whole blob on every change. One key, atomic write.
+  // Persist the whole blob on every change. One key, atomic write. If the write
+  // fails (typically the ~5 MB localStorage quota), flag it so the UI can prompt
+  // an export + prune — the data in memory is still intact for this session.
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
-    saveState(state);
+    setStorageFull(!saveState(state));
   }, [state]);
 
   const actions = useMemo(() => {
@@ -156,7 +159,10 @@ export function StoreProvider({ children }) {
     };
   }, []);
 
-  const value = useMemo(() => ({ state, actions }), [state, actions]);
+  const value = useMemo(
+    () => ({ state, actions, storageFull }),
+    [state, actions, storageFull],
+  );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 

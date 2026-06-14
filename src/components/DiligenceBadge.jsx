@@ -1,11 +1,19 @@
-import { computeDiligence, diligenceLabel, needsPostLaunchReview } from '../lib/diligence.js';
+import {
+  computeDiligence,
+  diligenceLabel,
+  diligenceTags,
+  needsPostLaunchReview,
+} from '../lib/diligence.js';
 import { Pill } from './ui.jsx';
 
 // At-a-glance diligence picture. Skipped validation gates are flagged loudest —
-// that's the whole "skipping is allowed but never hidden" mechanism.
+// that's the whole "skipping is allowed but never hidden" mechanism. Qualitative
+// archetype tags (Unvalidated / Sizing missing / Fully evidenced) replace any
+// single gameable score.
 export default function DiligenceBadge({ decision }) {
   const d = computeDiligence(decision);
   const label = diligenceLabel(decision);
+  const tags = diligenceTags(decision);
   const loopOpen = needsPostLaunchReview(decision);
 
   return (
@@ -21,7 +29,11 @@ export default function DiligenceBadge({ decision }) {
         })}
       </div>
       <span className="text-xs text-ink/60">{label}</span>
-      {d.validationSkipped > 0 && <Pill tone="flag">validation skipped</Pill>}
+      {tags.map((t) => (
+        <Pill key={t.label} tone={t.tone}>
+          {t.label}
+        </Pill>
+      ))}
       {loopOpen && <Pill tone="flag">needs post-launch review</Pill>}
     </div>
   );

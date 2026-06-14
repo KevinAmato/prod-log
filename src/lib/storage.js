@@ -43,11 +43,16 @@ export function loadState() {
   }
 }
 
+// Returns true on success. localStorage is capped (~5 MB/origin), so a backlog
+// stuffed with long transcripts can hit QuotaExceededError — callers surface a
+// warning so the user can export + prune (MVP feedback §3.3).
 export function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
   } catch (err) {
     console.error('[storage] Failed to save state:', err);
+    return false;
   }
 }
 
