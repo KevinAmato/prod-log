@@ -1,5 +1,14 @@
 import { useStore } from '../../store/StoreContext.jsx';
 import { BG_COLORS, TEXT_COLORS } from '../../lib/canvasPalette.js';
+import { DEFAULT_FONT } from '../../lib/canvasText.js';
+
+const STYLE_TOGGLES = [
+  ['bold', 'B', 'font-bold', 'Bold'],
+  ['italic', 'I', 'italic', 'Italic'],
+  ['underline', 'U', 'underline', 'Underline'],
+  ['strike', 'S', 'line-through', 'Strikethrough'],
+  ['code', '</>', 'font-mono', 'Code'],
+];
 
 // Contextual editor for the current selection: colours + comment + delete.
 // Shown whenever one or more canvas elements (or an edge) are selected.
@@ -16,8 +25,18 @@ export default function SelectionPanel({ nodeIds, edgeIds }) {
       ? state.map.edges.find((e) => e.id === edgeIds[0])
       : null;
 
+  const firstEl = state.map.elements.find((e) => nodeIds.includes(e.id));
+  const st = firstEl?.style || {};
+  const fontVal = Math.round(st.fontSize || DEFAULT_FONT);
+
   const setBg = (bg) => nodeIds.forEach((id) => actions.updateElement(id, { style: { bg } }));
   const setText = (text) => nodeIds.forEach((id) => actions.updateElement(id, { style: { text } }));
+  const setFont = (px) =>
+    nodeIds.forEach((id) => actions.updateElement(id, { style: { fontSize: Math.max(6, Math.min(200, px)) } }));
+  const toggle = (key) => {
+    const next = !st[key];
+    nodeIds.forEach((id) => actions.updateElement(id, { style: { [key]: next } }));
+  };
   const del = () => {
     if (nodeIds.length) actions.removeElements(nodeIds);
     if (edgeIds.length) actions.removeMapEdges(edgeIds);
@@ -59,6 +78,35 @@ export default function SelectionPanel({ nodeIds, edgeIds }) {
           <div className="mt-1 flex flex-wrap gap-1.5">
             {TEXT_COLORS.map((c) => (
               <Swatch key={c.value} value={c.value} onClick={() => setText(c.value)} />
+            ))}
+          </div>
+
+          <p className="mt-3 text-xs text-ink/55">Font</p>
+          <div className="mt-1 flex items-center gap-2">
+            <div className="flex items-center rounded-md border border-ink/15">
+              <button className="px-2 py-1 text-ink/60 hover:bg-ink/5" onClick={() => setFont(fontVal - 2)}>
+                −
+              </button>
+              <span className="w-8 text-center text-sm tabular-nums">{fontVal}</span>
+              <button className="px-2 py-1 text-ink/60 hover:bg-ink/5" onClick={() => setFont(fontVal + 2)}>
+                +
+              </button>
+            </div>
+          </div>
+          <div className="mt-1.5 flex gap-1">
+            {STYLE_TOGGLES.map(([key, glyph, cls, title]) => (
+              <button
+                key={key}
+                title={title}
+                onClick={() => toggle(key)}
+                className={`flex-1 rounded border px-1 py-1 text-sm ${cls} ${
+                  st[key]
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-ink/15 text-ink/60 hover:bg-ink/5'
+                }`}
+              >
+                {glyph}
+              </button>
             ))}
           </div>
         </>

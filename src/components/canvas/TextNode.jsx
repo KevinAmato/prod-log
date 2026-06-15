@@ -1,17 +1,27 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { NodeResizer } from '@xyflow/react';
 import { useStore } from '../../store/StoreContext.jsx';
+import { useNodeSize, scaledFont, textDecorations, commitResize } from '../../lib/canvasText.js';
 import NodeHandles from './NodeHandles.jsx';
 
+const ACCENT = '#b5562e';
+const DEFAULTS = [200, 44];
+
 // A free text label/field on the canvas. Transparent by default; resizable; text
-// colour customisable via the style panel.
+// colour/size/styling customisable via the style panel.
 export default function TextNode({ id, data, selected }) {
   const { actions } = useStore();
+  const ref = useRef(null);
+  const size = useNodeSize(ref);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(data.text || '');
 
   const style = data.style || {};
   const color = style.text || '#1c1a17';
+  const refW = data.width || DEFAULTS[0];
+  const refH = data.height || DEFAULTS[1];
+  const font = scaledFont(style, refW, refH, size);
+  const textStyle = { color, fontSize: font, ...textDecorations(style) };
 
   const commit = () => {
     setEditing(false);
@@ -19,15 +29,13 @@ export default function TextNode({ id, data, selected }) {
   };
 
   return (
-    <div className="group relative h-full w-full">
+    <div ref={ref} className="group relative h-full w-full">
       <NodeResizer
         isVisible={selected}
         minWidth={80}
         minHeight={28}
-        color="#b5562e"
-        onResizeEnd={(_, p) =>
-          actions.updateElement(id, { width: Math.round(p.width), height: Math.round(p.height) })
-        }
+        color={ACCENT}
+        onResizeEnd={(_, p) => commitResize(actions, id, p, data, refW, refH)}
       />
       {data.comment && (
         <span
@@ -39,20 +47,20 @@ export default function TextNode({ id, data, selected }) {
       )}
       <div
         className="h-full w-full rounded px-1 py-0.5"
-        style={{ color, background: style.bg || 'transparent' }}
+        style={{ background: style.bg || 'transparent' }}
         onDoubleClick={() => setEditing(true)}
       >
         {editing ? (
           <textarea
             autoFocus
-            className="nodrag h-full w-full resize-none bg-transparent text-sm outline-none"
-            style={{ color }}
+            className="nodrag h-full w-full resize-none bg-transparent outline-none"
+            style={textStyle}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commit}
           />
         ) : (
-          <p className="whitespace-pre-wrap text-sm leading-snug">
+          <p className="whitespace-pre-wrap leading-snug" style={textStyle}>
             {data.text || 'Double-click to edit'}
           </p>
         )}

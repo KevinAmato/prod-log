@@ -107,6 +107,8 @@ export function StoreProvider({ children }) {
             decisionId,
             x: position.x,
             y: position.y,
+            width: 224,
+            height: 132,
             style: {},
             comment: '',
           };

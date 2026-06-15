@@ -1,7 +1,13 @@
+import { useRef } from 'react';
+import { NodeResizer } from '@xyflow/react';
 import { useStore } from '../store/StoreContext.jsx';
 import { decisionGateAt, decisionTotal } from '../config/gates.js';
 import { diligenceTags } from '../lib/diligence.js';
+import { useNodeSize, scaledFont, textDecorations, commitResize } from '../lib/canvasText.js';
 import NodeHandles from './canvas/NodeHandles.jsx';
+
+const ACCENT = '#b5562e';
+export const INITIATIVE_DEFAULT = { width: 224, height: 132 };
 
 const tone = {
   neutral: 'bg-ink/5 text-ink/70',
@@ -10,17 +16,33 @@ const tone = {
   good: 'bg-emerald-600/10 text-emerald-700',
 };
 
-// A canvas card. It stores NO content of its own — it looks the initiative up in
-// the central store by id, so any edit elsewhere in the app reflects here live.
-// Only layout + presentation (position, colors, comment) come from the map.
-export default function InitiativeNode({ data }) {
-  const { state } = useStore();
+// A canvas card. Content is read live from the central store by id; only layout
+// + presentation (position, size, colours, font, comment) come from the map.
+// All text uses em units so a single root font-size scales the whole card.
+export default function InitiativeNode({ id, data, selected }) {
+  const { state, actions } = useStore();
+  const ref = useRef(null);
+  const size = useNodeSize(ref);
   const d = state.decisions.find((x) => x.id === data.decisionId);
   const style = data.style || {};
+  const refW = data.width || INITIATIVE_DEFAULT.width;
+  const refH = data.height || INITIATIVE_DEFAULT.height;
+  const font = scaledFont(style, refW, refH, size);
+
+  const resizer = (
+    <NodeResizer
+      isVisible={selected}
+      minWidth={150}
+      minHeight={84}
+      color={ACCENT}
+      onResizeEnd={(_, p) => commitResize(actions, id, p, data, refW, refH)}
+    />
+  );
 
   if (!d) {
     return (
-      <div className="w-56 rounded-lg border border-dashed border-ink/20 bg-white px-3 py-2 text-xs text-ink/40">
+      <div ref={ref} className="h-full w-full rounded-lg border border-dashed border-ink/20 bg-white px-3 py-2 text-xs text-ink/40">
+        {resizer}
         (initiative deleted)
         <NodeHandles />
       </div>
@@ -35,11 +57,13 @@ export default function InitiativeNode({ data }) {
 
   return (
     <div
-      className={`group relative w-56 rounded-lg border shadow-sm ${
+      ref={ref}
+      className={`group relative h-full w-full overflow-hidden rounded-lg border shadow-sm ${
         hasCustomBg ? 'border-black/10' : 'border-ink/15 bg-white'
       }`}
-      style={{ background: style.bg, color: style.text }}
+      style={{ background: style.bg, color: style.text, fontSize: font, ...textDecorations(style) }}
     >
+      {resizer}
       {data.comment && (
         <span
           title={data.comment}
@@ -48,18 +72,28 @@ export default function InitiativeNode({ data }) {
           💬
         </span>
       )}
-      <div className="p-3">
-        <p className="text-[10px] uppercase tracking-wide opacity-50">{d.type}</p>
-        <h4 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug">{d.title}</h4>
-        <p className="mt-1 text-[11px] opacity-60">
+      <div className="p-[0.85em]">
+        <p className="uppercase tracking-wide opacity-50" style={{ fontSize: '0.72em' }}>
+          {d.type}
+        </p>
+        <h4 className="line-clamp-2 font-semibold leading-snug" style={{ fontSize: '1.05em' }}>
+          {d.title}
+        </h4>
+        <p className="opacity-60" style={{ fontSize: '0.8em' }}>
           {done ? 'Funnel complete' : `Gate ${d.currentGateOrder}/${total} · ${gate?.name}`}
         </p>
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="mt-[0.45em] flex flex-wrap gap-[0.3em]">
           {tags.length === 0 ? (
-            <span className="text-[10px] opacity-50">in progress</span>
+            <span className="opacity-50" style={{ fontSize: '0.72em' }}>
+              in progress
+            </span>
           ) : (
             tags.map((t) => (
-              <span key={t.label} className={`rounded-full px-1.5 py-0.5 text-[10px] ${tone[t.tone]}`}>
+              <span
+                key={t.label}
+                className={`rounded-full px-[0.5em] py-[0.15em] ${tone[t.tone]}`}
+                style={{ fontSize: '0.72em' }}
+              >
                 {t.label}
               </span>
             ))

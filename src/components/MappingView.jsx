@@ -30,7 +30,13 @@ const MARKER = { type: MarkerType.ArrowClosed, color: ACCENT, width: 18, height:
 // Build the React Flow `data` payload for a stored element.
 function nodeData(el) {
   if (el.type === 'initiative') {
-    return { decisionId: el.decisionId, style: el.style, comment: el.comment };
+    return {
+      decisionId: el.decisionId,
+      style: el.style,
+      comment: el.comment,
+      width: el.width,
+      height: el.height,
+    };
   }
   if (el.type === 'shape') {
     return {
@@ -68,17 +74,13 @@ function Canvas({ onOpenDecision }) {
         const existing = byId.get(el.id);
         const data = nodeData(el);
         // Size only seeds new nodes; once mounted, NodeResizer owns the box (so
-        // a live resize isn't clobbered by reconciliation).
-        const sized = el.type === 'shape' || el.type === 'text';
+        // a live resize isn't clobbered by reconciliation). Fallback dims cover
+        // cards/elements placed before sizing existed.
+        const width = el.width || (el.type === 'initiative' ? 224 : el.type === 'shape' ? 168 : 200);
+        const height = el.height || (el.type === 'initiative' ? 132 : el.type === 'shape' ? 96 : 44);
         return existing
           ? { ...existing, type: el.type, data }
-          : {
-              id: el.id,
-              type: el.type,
-              position: { x: el.x, y: el.y },
-              data,
-              ...(sized ? { width: el.width, height: el.height } : {}),
-            };
+          : { id: el.id, type: el.type, position: { x: el.x, y: el.y }, data, width, height };
       });
     });
   }, [state.map.elements, setNodes]);
