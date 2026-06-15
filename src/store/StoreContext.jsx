@@ -208,6 +208,20 @@ export function StoreProvider({ children }) {
         }));
       },
 
+      // Nudge several elements by a delta in one commit (arrow-key movement).
+      nudgeElements(ids, dx, dy) {
+        const set = new Set(ids);
+        setState((s) => ({
+          ...s,
+          map: {
+            ...s.map,
+            elements: s.map.elements.map((e) =>
+              set.has(e.id) ? { ...e, x: e.x + dx, y: e.y + dy } : e,
+            ),
+          },
+        }));
+      },
+
       updateElement(id, patch) {
         setState((s) => ({
           ...s,

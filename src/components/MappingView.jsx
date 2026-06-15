@@ -15,13 +15,17 @@ import {
 import '@xyflow/react/dist/style.css';
 import { useStore } from '../store/StoreContext.jsx';
 import { newId } from '../lib/storage.js';
+import { getHelperLines } from '../lib/helperLines.js';
 import InitiativeNode from './InitiativeNode.jsx';
 import ShapeNode from './canvas/ShapeNode.jsx';
 import TextNode from './canvas/TextNode.jsx';
 import CommentNode from './canvas/CommentNode.jsx';
 import FloatingEdge from './canvas/FloatingEdge.jsx';
+import HelperLines from './canvas/HelperLines.jsx';
 import CanvasToolbar from './canvas/CanvasToolbar.jsx';
 import SelectionPanel from './canvas/SelectionPanel.jsx';
+
+const SHAPE_SIZES = { rectangle: [168, 96], ellipse: [120, 120], diamond: [140, 100] };
 
 const nodeTypes = {
   initiative: InitiativeNode,
@@ -68,11 +72,33 @@ function Canvas({ onOpenDecision }) {
   const clipboard = useRef(null); // { elements, edges } for copy/paste
   const pasteCount = useRef(0); // diagonal offset multiplier for repeated pastes
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [nodes, setNodes, onNodesChangeBase] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selection, setSelection] = useState({ nodeIds: [], edgeIds: [] });
+  const [helperLines, setHelperLines] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window === 'undefined' || window.innerWidth >= 640,
+  );
+
+  // Latest nodes for the alignment-guide calc (read inside a stable callback).
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+
+  // Wrap node changes: when dragging a single node, snap it to alignment with
+  // other nodes and surface the guide line(s).
+  const onNodesChange = useCallback(
+    (changes) => {
+      if (changes.length === 1 && changes[0].type === 'position' && changes[0].dragging && changes[0].position) {
+        const helpers = getHelperLines(changes[0], nodesRef.current);
+        if (helpers.snapPosition.x !== undefined) changes[0].position.x = helpers.snapPosition.x;
+        if (helpers.snapPosition.y !== undefined) changes[0].position.y = helpers.snapPosition.y;
+        setHelperLines({ horizontal: helpers.horizontal, vertical: helpers.vertical });
+      } else if (Object.keys(helperLines).length) {
+        setHelperLines({});
+      }
+      onNodesChangeBase(changes);
+    },
+    [onNodesChangeBase, helperLines],
   );
 
   // ── Store → canvas sync ──────────────────────────────────────────────
@@ -141,6 +167,7 @@ function Canvas({ onOpenDecision }) {
   // ── Canvas → store persistence ───────────────────────────────────────
   const onNodeDragStop = useCallback(
     (_, node, dragged) => {
+      setHelperLines({});
       (dragged && dragged.length ? dragged : [node]).forEach((n) =>
         actions.moveElement(n.id, n.position),
       );
@@ -151,6 +178,50 @@ function Canvas({ onOpenDecision }) {
   const onConnect = useCallback(
     (params) => actions.addMapEdge({ source: params.source, target: params.target }),
     [actions],
+  );
+
+  // Quick-connect (Whimsical-style): drag a connection into empty space and a
+  // new connected rectangle is created at the drop point.
+  const onConnectEnd = useCallback(
+    (event, connectionState) => {
+      if (connectionState.isValid) return; // landed on a node — onConnect handled it
+      const fromId = connectionState.fromNode?.id;
+      if (!fromId) return;
+      const { clientX, clientY } =
+        'changedTouches' in event ? event.changedTouches[0] : event;
+      const pos = screenToFlowPosition({ x: clientX, y: clientY });
+      const id = newId();
+      const [w, h] = SHAPE_SIZES.rectangle;
+      actions.addElements(
+        [
+          {
+            id,
+            type: 'shape',
+            shape: 'rectangle',
+            x: pos.x - w / 2,
+            y: pos.y - h / 2,
+            width: w,
+            height: h,
+            text: '',
+            style: {},
+            comment: '',
+          },
+        ],
+        [
+          {
+            id: `e-${fromId}-${id}`,
+            source: fromId,
+            target: id,
+            arrow: 'end',
+            color: '#b5562e',
+            width: 1.5,
+            lineStyle: 'solid',
+            comment: '',
+          },
+        ],
+      );
+    },
+    [screenToFlowPosition, actions],
   );
 
   // Comment pins manage themselves — keep them out of the style toolbar.
@@ -210,6 +281,60 @@ function Canvas({ onOpenDecision }) {
     actions.addElements(newEls, newEdges);
   };
 
+  // Duplicate the selection in place (Ctrl+D) — like paste but from the current
+  // selection and without touching the copy clipboard.
+  const duplicateSelection = () => {
+    const ids = new Set(selection.nodeIds);
+    const els = state.map.elements.filter((el) => ids.has(el.id) && el.type !== 'initiative');
+    if (!els.length) return;
+    const elIds = new Set(els.map((el) => el.id));
+    const edges = state.map.edges.filter((e) => elIds.has(e.source) && elIds.has(e.target));
+    const idMap = {};
+    const newEls = els.map((el) => {
+      const nid = newId();
+      idMap[el.id] = nid;
+      return { ...structuredClone(el), id: nid, x: el.x + 24, y: el.y + 24 };
+    });
+    const newEdges = edges.map((e) => ({
+      ...structuredClone(e),
+      id: `e-${idMap[e.source]}-${idMap[e.target]}`,
+      source: idMap[e.source],
+      target: idMap[e.target],
+    }));
+    actions.addElements(newEls, newEdges);
+  };
+
+  const addShapeAt = (shape) => {
+    const pos = screenToFlowPosition(pointer.current);
+    const [w, h] = SHAPE_SIZES[shape];
+    actions.addElement({
+      id: newId(),
+      type: 'shape',
+      shape,
+      x: pos.x - w / 2,
+      y: pos.y - h / 2,
+      width: w,
+      height: h,
+      text: '',
+      style: {},
+      comment: '',
+    });
+  };
+
+  const addTextAt = () => {
+    const pos = screenToFlowPosition(pointer.current);
+    actions.addElement({
+      id: newId(),
+      type: 'text',
+      x: pos.x - 100,
+      y: pos.y - 22,
+      width: 200,
+      text: 'Text',
+      style: {},
+      comment: '',
+    });
+  };
+
   // Keyboard: Delete removes the selection; "C" drops a comment pin; Ctrl/Cmd
   // C/X/V copy / cut / paste canvas elements. All ignored while typing in a field
   // (so text copy/paste still works there).
@@ -236,7 +361,28 @@ function Canvas({ onOpenDecision }) {
           e.preventDefault();
           pasteClipboard();
         }
-      } else if (k === 'c' && !mod && !e.altKey) {
+      } else if (mod && k === 'd') {
+        e.preventDefault();
+        duplicateSelection();
+      } else if (e.key.startsWith('Arrow') && selection.nodeIds.length) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const delta = {
+          ArrowUp: [0, -step],
+          ArrowDown: [0, step],
+          ArrowLeft: [-step, 0],
+          ArrowRight: [step, 0],
+        }[e.key];
+        if (delta) actions.nudgeElements(selection.nodeIds, delta[0], delta[1]);
+      } else if (!mod && !e.altKey && k === 'r') {
+        addShapeAt('rectangle');
+      } else if (!mod && !e.altKey && k === 'o') {
+        addShapeAt('ellipse');
+      } else if (!mod && !e.altKey && k === 'd') {
+        addShapeAt('diamond');
+      } else if (!mod && !e.altKey && k === 't') {
+        addTextAt();
+      } else if (!mod && !e.altKey && k === 'c') {
         const pos = screenToFlowPosition(pointer.current);
         actions.addElement({ id: newId(), type: 'comment', x: pos.x, y: pos.y, text: '' });
       }
@@ -268,6 +414,7 @@ function Canvas({ onOpenDecision }) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
         onNodeDragStop={onNodeDragStop}
         onSelectionChange={onSelectionChange}
         onNodeDoubleClick={(_, n) => n.type === 'initiative' && onOpenDecision?.(n.id)}
@@ -291,6 +438,7 @@ function Canvas({ onOpenDecision }) {
         />
         <Controls showInteractive={false} />
         <MiniMap className="hidden md:block" pannable zoomable />
+        <HelperLines horizontal={helperLines.horizontal} vertical={helperLines.vertical} />
       </ReactFlow>
 
       <CanvasToolbar wrapperRef={wrapperRef} />
@@ -299,8 +447,9 @@ function Canvas({ onOpenDecision }) {
       {nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="max-w-xs text-center text-sm text-ink/40">
-            Drag initiatives from the panel onto the canvas, or add shapes/text from the
-            toolbar. Drag from any edge of an element to connect it.
+            Drag initiatives from the panel onto the canvas, or press R / O / D / T to add
+            shapes & text at the cursor. Drag from any edge to connect — release on empty
+            space to spawn a connected node.
           </p>
         </div>
       )}
