@@ -65,6 +65,8 @@ function Canvas({ onOpenDecision }) {
   const { screenToFlowPosition } = useReactFlow();
   const wrapperRef = useRef(null);
   const pointer = useRef({ x: 0, y: 0 }); // last cursor position over the canvas
+  const clipboard = useRef(null); // { elements, edges } for copy/paste
+  const pasteCount = useRef(0); // diagonal offset multiplier for repeated pastes
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -175,24 +177,74 @@ function Canvas({ onOpenDecision }) {
     [screenToFlowPosition, actions],
   );
 
-  // Keyboard: Delete removes the selection; "C" drops a comment pin at the
-  // cursor. Both are ignored while typing in a field.
+  // Copy the current selection (shapes/text/comments — initiatives are 1:1 with
+  // a decision, so they're not duplicable) plus any edges between them.
+  const copySelection = () => {
+    const ids = new Set(selection.nodeIds);
+    const els = state.map.elements.filter((el) => ids.has(el.id) && el.type !== 'initiative');
+    if (!els.length) return false;
+    const elIds = new Set(els.map((el) => el.id));
+    const edges = state.map.edges.filter((e) => elIds.has(e.source) && elIds.has(e.target));
+    clipboard.current = { elements: structuredClone(els), edges: structuredClone(edges) };
+    pasteCount.current = 0;
+    return true;
+  };
+
+  const pasteClipboard = () => {
+    const cb = clipboard.current;
+    if (!cb || !cb.elements.length) return;
+    pasteCount.current += 1;
+    const off = 24 * pasteCount.current;
+    const idMap = {};
+    const newEls = cb.elements.map((el) => {
+      const nid = newId();
+      idMap[el.id] = nid;
+      return { ...structuredClone(el), id: nid, x: el.x + off, y: el.y + off };
+    });
+    const newEdges = cb.edges.map((e) => ({
+      ...structuredClone(e),
+      id: `e-${idMap[e.source]}-${idMap[e.target]}`,
+      source: idMap[e.source],
+      target: idMap[e.target],
+    }));
+    actions.addElements(newEls, newEdges);
+  };
+
+  // Keyboard: Delete removes the selection; "C" drops a comment pin; Ctrl/Cmd
+  // C/X/V copy / cut / paste canvas elements. All ignored while typing in a field
+  // (so text copy/paste still works there).
   useEffect(() => {
     const onKey = (e) => {
       const t = document.activeElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selection.nodeIds.length) actions.removeElements(selection.nodeIds);
         if (selection.edgeIds.length) actions.removeMapEdges(selection.edgeIds);
-      } else if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      } else if (mod && k === 'c') {
+        if (copySelection()) e.preventDefault();
+      } else if (mod && k === 'x') {
+        if (copySelection()) {
+          e.preventDefault();
+          if (selection.nodeIds.length) actions.removeElements(selection.nodeIds);
+          if (selection.edgeIds.length) actions.removeMapEdges(selection.edgeIds);
+        }
+      } else if (mod && k === 'v') {
+        if (clipboard.current?.elements?.length) {
+          e.preventDefault();
+          pasteClipboard();
+        }
+      } else if (k === 'c' && !mod && !e.altKey) {
         const pos = screenToFlowPosition(pointer.current);
         actions.addElement({ id: newId(), type: 'comment', x: pos.x, y: pos.y, text: '' });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selection, actions, screenToFlowPosition]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection, actions, screenToFlowPosition, state.map.elements, state.map.edges]);
 
   const placedInitiativeIds = new Set(
     state.map.elements.filter((el) => el.type === 'initiative').map((el) => el.decisionId),

@@ -182,6 +182,20 @@ export function StoreProvider({ children }) {
         }));
       },
 
+      // Add many elements (+ optional edges) in one commit — used by paste so a
+      // single Ctrl+Z undoes the whole paste.
+      addElements(elements, edges = []) {
+        if (!elements.length) return;
+        setState((s) => ({
+          ...s,
+          map: {
+            ...s.map,
+            elements: [...s.map.elements, ...elements],
+            edges: [...s.map.edges, ...edges],
+          },
+        }));
+      },
+
       moveElement(id, position) {
         setState((s) => ({
           ...s,
