@@ -34,7 +34,7 @@ export default function FloatingEdge({ id, source, target, markerStart, markerEn
       {data?.comment && (
         <EdgeLabelRenderer>
           <div
-            className="nodrag nopan pointer-events-none absolute rounded bg-white px-1.5 py-0.5 text-[10px] text-ink/70 shadow-sm ring-1 ring-ink/10"
+            className="nodrag nopan pointer-events-none absolute rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink/70 shadow-sm ring-1 ring-ink/10"
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
           >
             💬 {data.comment.length > 28 ? `${data.comment.slice(0, 28)}…` : data.comment}

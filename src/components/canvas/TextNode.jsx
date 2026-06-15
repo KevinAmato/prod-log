@@ -24,7 +24,7 @@ export default function TextNode({ id, data, selected }) {
   const [draft, setDraft] = useState(data.text || '');
 
   const style = data.style || {};
-  const color = style.text || '#1c1a17';
+  const color = style.text || 'rgb(var(--ink))';
   const refW = data.width || DEFAULTS[0];
   const refH = data.height || DEFAULTS[1];
   const font = scaledFont(style, refW, refH, size);
@@ -49,7 +49,7 @@ export default function TextNode({ id, data, selected }) {
       {data.comment && (
         <span
           title={data.comment}
-          className="absolute -right-1.5 -top-1.5 z-10 rounded-full bg-white px-1 text-[11px] shadow ring-1 ring-ink/10"
+          className="absolute -right-1.5 -top-1.5 z-10 rounded-full bg-surface px-1 text-[11px] shadow ring-1 ring-ink/10"
         >
           💬
         </span>

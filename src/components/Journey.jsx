@@ -90,7 +90,7 @@ function EditForm({ decisionId, entry, gate, onDone }) {
   };
 
   return (
-    <div className="mt-3 rounded-lg border border-ink/15 bg-white p-3">
+    <div className="mt-3 rounded-lg border border-ink/15 bg-surface p-3">
       <div className="mb-3 flex gap-2 text-xs">
         <button
           onClick={() => setStatus('provided')}

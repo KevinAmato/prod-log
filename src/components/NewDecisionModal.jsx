@@ -74,7 +74,7 @@ export default function NewDecisionModal({ onClose, onCreated }) {
 
           {lines.length > 0 && (
             <Field label="Affected product lines" hint="Select one or more.">
-              <div className="rounded-md border border-ink/20 bg-white">
+              <div className="rounded-md border border-ink/20 bg-surface">
                 <label className="flex cursor-pointer items-center gap-2 border-b border-ink/10 px-3 py-2 text-sm font-medium">
                   <input
                     type="checkbox"

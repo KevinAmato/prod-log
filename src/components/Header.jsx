@@ -1,12 +1,14 @@
 import BackupControls from './BackupControls.jsx';
+import { useStore } from '../store/StoreContext.jsx';
 import { Button } from './ui.jsx';
 
 export default function Header({ view, onNavigate, onOpenSettings, onHome }) {
+  const { theme, toggleTheme } = useStore();
   const tab = (id, label) => (
     <button
       onClick={() => onNavigate(id)}
       className={`rounded px-3 py-2 text-sm font-medium transition-colors ${
-        view === id ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+        view === id ? 'bg-surface text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
       }`}
     >
       {label}
@@ -31,6 +33,13 @@ export default function Header({ view, onNavigate, onOpenSettings, onHome }) {
           <span className="hidden items-center gap-1 sm:flex">
             <BackupControls variant="compact" />
           </span>
+          <Button
+            variant="ghost"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </Button>
           <Button variant="outline" onClick={onOpenSettings}>
             Settings
           </Button>

@@ -24,8 +24,8 @@ export default function ShapeNode({ id, data, selected }) {
 
   const shape = data.shape || 'rectangle';
   const style = data.style || {};
-  const bg = style.bg || '#ffffff';
-  const color = style.text || '#1c1a17';
+  const bg = style.bg || 'rgb(var(--surface))';
+  const color = style.text || 'rgb(var(--ink))';
   const [dw, dh] = DEFAULTS[shape] || DEFAULTS.rectangle;
   const refW = data.width || dw;
   const refH = data.height || dh;
@@ -65,7 +65,7 @@ export default function ShapeNode({ id, data, selected }) {
       {data.comment && (
         <span
           title={data.comment}
-          className="absolute -right-1.5 -top-1.5 z-10 rounded-full bg-white px-1 text-[11px] shadow ring-1 ring-ink/10"
+          className="absolute -right-1.5 -top-1.5 z-10 rounded-full bg-surface px-1 text-[11px] shadow ring-1 ring-ink/10"
         >
           💬
         </span>

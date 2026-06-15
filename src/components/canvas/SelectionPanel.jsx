@@ -44,7 +44,7 @@ function ColorCircle({ current, colors, onPick, title }) {
           <>
             <div className="fixed inset-0 z-[60]" onClick={() => setPos(null)} />
             <div
-              className="fixed z-[61] flex -translate-x-1/2 -translate-y-full gap-1.5 rounded-lg border border-ink/15 bg-paper p-2 shadow-xl"
+              className="fixed z-[61] grid w-[188px] -translate-x-1/2 -translate-y-full grid-cols-8 gap-1.5 rounded-lg border border-ink/15 bg-paper p-2 shadow-xl"
               style={{ left: pos.x, top: pos.y }}
             >
               {colors.map((c) => (
@@ -167,7 +167,7 @@ export default function SelectionPanel({ nodeIds, edgeIds }) {
             title="Font"
             value={st.fontFamily || ''}
             onChange={(e) => setStyle({ fontFamily: e.target.value })}
-            className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-sm"
+            className="shrink-0 rounded-md border border-ink/15 bg-surface px-1.5 py-1 text-sm"
           >
             {FONT_FAMILIES.map((f) => (
               <option key={f.name} value={f.value} style={{ fontFamily: f.value || undefined }}>

@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --ink: 28 26 23; /* #1c1a17 */
+  --paper: 246 244 239; /* #f6f4ef */
+  --accent: 181 86 46; /* #b5562e */
+  --surface: 255 255 255; /* card / input surfaces */
+  --canvas-dot: #cbc6ba;
+}
+
+.dark {
+  --ink: 237 234 228;
+  --paper: 24 22 20;
+  --accent: 209 110 74;
+  --surface: 42 39 37;
+  --canvas-dot: #3a3631;
+}
+
 html,
 body,
 #root {

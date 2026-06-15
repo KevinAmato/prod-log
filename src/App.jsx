@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from './store/StoreContext.jsx';
 import Setup from './components/Setup.jsx';
 import Header from './components/Header.jsx';
@@ -8,10 +8,29 @@ import MappingView from './components/MappingView.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 
 export default function App() {
-  const { state, storageFull } = useStore();
+  const { state, storageFull, undo, redo } = useStore();
   const [view, setView] = useState('backlog'); // 'backlog' | 'mapping'
   const [selectedId, setSelectedId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Global undo/redo. Skipped while typing so Ctrl+Z still does text undo.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const t = document.activeElement;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
 
   if (!state.profile.setupComplete) {
     return <Setup />;

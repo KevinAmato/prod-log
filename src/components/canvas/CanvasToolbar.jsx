@@ -32,7 +32,7 @@ export default function CanvasToolbar({ wrapperRef }) {
       y: pos.y,
       ...SIZES[shape],
       text: '',
-      style: { bg: '#ffffff', text: '#1c1a17' },
+      style: {}, // themed default colours; user can override
       comment: '',
     }));
 
@@ -44,7 +44,7 @@ export default function CanvasToolbar({ wrapperRef }) {
       y: pos.y,
       width: 200,
       text: 'Text',
-      style: { text: '#1c1a17' },
+      style: {},
       comment: '',
     }));
 

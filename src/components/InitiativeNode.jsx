@@ -49,7 +49,7 @@ export default function InitiativeNode({ id, data, selected }) {
 
   if (!d) {
     return (
-      <div ref={ref} className="h-full w-full rounded-lg border border-dashed border-ink/20 bg-white px-3 py-2 text-xs text-ink/40">
+      <div ref={ref} className="h-full w-full rounded-lg border border-dashed border-ink/20 bg-surface px-3 py-2 text-xs text-ink/40">
         {resizer}
         (initiative deleted)
         <NodeHandles />
@@ -69,7 +69,7 @@ export default function InitiativeNode({ id, data, selected }) {
     <div
       ref={ref}
       className={`group relative flex h-full w-full flex-col overflow-hidden rounded-lg border shadow-sm ${
-        hasCustomBg ? 'border-black/10' : 'border-ink/15 bg-white'
+        hasCustomBg ? 'border-black/10' : 'border-ink/15 bg-surface'
       }`}
       style={{
         background: style.bg,
@@ -83,7 +83,7 @@ export default function InitiativeNode({ id, data, selected }) {
       {data.comment && (
         <span
           title={data.comment}
-          className="absolute -right-1.5 -top-1.5 z-10 rounded-full bg-white px-1 text-[11px] shadow ring-1 ring-ink/10"
+          className="absolute -right-1.5 -top-1.5 z-10 rounded-full bg-surface px-1 text-[11px] shadow ring-1 ring-ink/10"
         >
           💬
         </span>

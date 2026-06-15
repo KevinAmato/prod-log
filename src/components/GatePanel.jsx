@@ -246,7 +246,7 @@ export default function GatePanel({ decision, gate }) {
       )}
 
       {angles.length > 0 && (
-        <div className="mt-4 rounded-lg border border-ink/10 bg-white p-4">
+        <div className="mt-4 rounded-lg border border-ink/10 bg-surface p-4">
           <p className="text-xs uppercase tracking-wide text-ink/40">
             Angles to react to — not answers
           </p>

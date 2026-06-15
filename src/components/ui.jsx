@@ -28,12 +28,12 @@ export function Field({ label, hint, children }) {
 // text-base (16px) on mobile prevents iOS Safari from auto-zooming on focus;
 // drops to text-sm from sm: up to keep desktop density.
 export const inputClass =
-  'w-full rounded-md border border-ink/20 bg-white px-3 py-2.5 text-base outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:py-2 sm:text-sm';
+  'w-full rounded-md border border-ink/20 bg-surface px-3 py-2.5 text-base outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:py-2 sm:text-sm';
 
 export function Card({ className = '', ...props }) {
   return (
     <div
-      className={`rounded-lg border border-ink/10 bg-white/70 ${className}`}
+      className={`rounded-lg border border-ink/10 bg-surface ${className}`}
       {...props}
     />
   );

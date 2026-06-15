@@ -61,7 +61,7 @@ export default function Backlog({ onOpen }) {
       {state.decisions.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
           <select
-            className="rounded-md border border-ink/20 bg-white px-2 py-2 text-sm"
+            className="rounded-md border border-ink/20 bg-surface px-2 py-2 text-sm"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -73,7 +73,7 @@ export default function Backlog({ onOpen }) {
             ))}
           </select>
           <select
-            className="rounded-md border border-ink/20 bg-white px-2 py-2 text-sm"
+            className="rounded-md border border-ink/20 bg-surface px-2 py-2 text-sm"
             value={sort}
             onChange={(e) => setSort(e.target.value)}
           >

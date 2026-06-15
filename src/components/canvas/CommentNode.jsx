@@ -40,7 +40,7 @@ export default function CommentNode({ id, data }) {
   }
 
   return (
-    <div className="nodrag w-56 rounded-lg border border-ink/15 bg-white p-2 shadow-xl">
+    <div className="nodrag w-56 rounded-lg border border-ink/15 bg-surface p-2 shadow-xl">
       <div className="mb-1 flex items-center justify-between">
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
           C

@@ -1,32 +1,53 @@
-// Curated swatches for the style panel. Backgrounds are soft tints that keep the
-// editorial feel; text colors are high-contrast against them.
+// Swatches for the style panel. Backgrounds are light/lively tints (readable
+// with dark text) plus a dark option; text/line colours are saturated.
 
 export const BG_COLORS = [
   { name: 'White', value: '#ffffff' },
-  { name: 'Sand', value: '#efeae0' },
-  { name: 'Terracotta', value: '#f3ddd2' },
-  { name: 'Amber', value: '#f7e6c4' },
-  { name: 'Sage', value: '#dceadd' },
-  { name: 'Sky', value: '#d8e6f1' },
-  { name: 'Lilac', value: '#e6def0' },
+  { name: 'Gray', value: '#e9e7e1' },
+  { name: 'Red', value: '#fecaca' },
+  { name: 'Orange', value: '#fed7aa' },
+  { name: 'Amber', value: '#fde68a' },
+  { name: 'Yellow', value: '#fef08a' },
+  { name: 'Lime', value: '#d9f99d' },
+  { name: 'Green', value: '#bbf7d0' },
+  { name: 'Teal', value: '#99f6e4' },
+  { name: 'Cyan', value: '#a5f3fc' },
+  { name: 'Blue', value: '#bfdbfe' },
+  { name: 'Indigo', value: '#c7d2fe' },
+  { name: 'Violet', value: '#ddd6fe' },
+  { name: 'Fuchsia', value: '#f5d0fe' },
+  { name: 'Pink', value: '#fbcfe8' },
   { name: 'Slate', value: '#2c2a26' },
 ];
 
 export const TEXT_COLORS = [
   { name: 'Ink', value: '#1c1a17' },
-  { name: 'White', value: '#f6f4ef' },
+  { name: 'White', value: '#ffffff' },
   { name: 'Terracotta', value: '#b5562e' },
-  { name: 'Emerald', value: '#1f7a4d' },
-  { name: 'Slate blue', value: '#3a5a8c' },
+  { name: 'Red', value: '#dc2626' },
+  { name: 'Orange', value: '#ea580c' },
+  { name: 'Amber', value: '#d97706' },
+  { name: 'Green', value: '#16a34a' },
+  { name: 'Teal', value: '#0d9488' },
+  { name: 'Blue', value: '#2563eb' },
+  { name: 'Indigo', value: '#4f46e5' },
+  { name: 'Violet', value: '#7c3aed' },
+  { name: 'Pink', value: '#db2777' },
 ];
 
 export const LINE_COLORS = [
   { name: 'Terracotta', value: '#b5562e' },
   { name: 'Ink', value: '#1c1a17' },
-  { name: 'Slate', value: '#3a5a8c' },
-  { name: 'Emerald', value: '#1f7a4d' },
-  { name: 'Amber', value: '#c08a2d' },
   { name: 'Gray', value: '#9a958c' },
+  { name: 'Red', value: '#dc2626' },
+  { name: 'Orange', value: '#ea580c' },
+  { name: 'Amber', value: '#d97706' },
+  { name: 'Green', value: '#16a34a' },
+  { name: 'Teal', value: '#0d9488' },
+  { name: 'Blue', value: '#2563eb' },
+  { name: 'Indigo', value: '#4f46e5' },
+  { name: 'Violet', value: '#7c3aed' },
+  { name: 'Pink', value: '#db2777' },
 ];
 
 // Empty value = inherit the app default (Inter).

@@ -61,7 +61,7 @@ function nodeData(el) {
 }
 
 function Canvas({ onOpenDecision }) {
-  const { state, actions } = useStore();
+  const { state, actions, theme } = useStore();
   const { screenToFlowPosition } = useReactFlow();
   const wrapperRef = useRef(null);
   const pointer = useRef({ x: 0, y: 0 }); // last cursor position over the canvas
@@ -225,12 +225,18 @@ function Canvas({ onOpenDecision }) {
         panOnDrag={[1, 2]}
         selectionOnDrag
         zoomOnDoubleClick={false}
+        colorMode={theme}
         fitView
         minZoom={0.2}
         maxZoom={2}
         proOptions={{ hideAttribution: false }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#cbc6ba" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={22}
+          size={1}
+          color={theme === 'dark' ? '#3a3631' : '#cbc6ba'}
+        />
         <Controls showInteractive={false} />
         <MiniMap className="hidden md:block" pannable zoomable />
       </ReactFlow>
@@ -276,7 +282,7 @@ function Canvas({ onOpenDecision }) {
                     e.dataTransfer.setData(DRAG_MIME, d.id);
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  className="mb-2 cursor-grab rounded-md border border-ink/10 bg-white p-2 shadow-sm active:cursor-grabbing"
+                  className="mb-2 cursor-grab rounded-md border border-ink/10 bg-surface p-2 shadow-sm active:cursor-grabbing"
                 >
                   <p className="line-clamp-2 text-sm font-medium leading-snug">{d.title}</p>
                   <p className="mt-0.5 text-[11px] text-ink/50">{d.type}</p>
