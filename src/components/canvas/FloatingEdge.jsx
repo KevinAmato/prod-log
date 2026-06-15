@@ -1,5 +1,5 @@
 import { getStraightPath, useInternalNode, EdgeLabelRenderer } from '@xyflow/react';
-import { getEdgeParams } from '../../lib/floatingEdge.js';
+import { getEdgeParams, nodeReady } from '../../lib/floatingEdge.js';
 
 const ACCENT = '#b5562e';
 
@@ -9,7 +9,7 @@ const ACCENT = '#b5562e';
 export default function FloatingEdge({ id, source, target, markerStart, markerEnd, style, data }) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
-  if (!sourceNode || !targetNode) return null;
+  if (!nodeReady(sourceNode) || !nodeReady(targetNode)) return null;
 
   const { sx, sy, tx, ty } = getEdgeParams(sourceNode, targetNode);
   const [path, labelX, labelY] = getStraightPath({

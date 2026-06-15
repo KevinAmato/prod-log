@@ -171,7 +171,19 @@ export function StoreProvider({ children }) {
             ...s,
             map: {
               ...s.map,
-              edges: [...s.map.edges, { id, source, target, comment: '', arrow: 'end' }],
+              edges: [
+                ...s.map.edges,
+                {
+                  id,
+                  source,
+                  target,
+                  comment: '',
+                  arrow: 'end',
+                  color: '#b5562e',
+                  width: 1.5,
+                  lineStyle: 'solid',
+                },
+              ],
             },
           };
         });

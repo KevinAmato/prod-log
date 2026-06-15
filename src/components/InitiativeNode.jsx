@@ -3,7 +3,15 @@ import { NodeResizer } from '@xyflow/react';
 import { useStore } from '../store/StoreContext.jsx';
 import { decisionGateAt, decisionTotal } from '../config/gates.js';
 import { diligenceTags } from '../lib/diligence.js';
-import { useNodeSize, scaledFont, textDecorations, commitResize } from '../lib/canvasText.js';
+import {
+  useNodeSize,
+  scaledFont,
+  textDecorations,
+  commitResize,
+  H_TEXT,
+  V_FLEX,
+  H_FLEX,
+} from '../lib/canvasText.js';
 import NodeHandles from './canvas/NodeHandles.jsx';
 
 const ACCENT = '#b5562e';
@@ -54,14 +62,22 @@ export default function InitiativeNode({ id, data, selected }) {
   const done = d.currentGateOrder > total;
   const tags = diligenceTags(d);
   const hasCustomBg = !!style.bg;
+  const align = style.align || 'left';
+  const valign = style.valign || 'top';
 
   return (
     <div
       ref={ref}
-      className={`group relative h-full w-full overflow-hidden rounded-lg border shadow-sm ${
+      className={`group relative flex h-full w-full flex-col overflow-hidden rounded-lg border shadow-sm ${
         hasCustomBg ? 'border-black/10' : 'border-ink/15 bg-white'
       }`}
-      style={{ background: style.bg, color: style.text, fontSize: font, ...textDecorations(style) }}
+      style={{
+        background: style.bg,
+        color: style.text,
+        fontSize: font,
+        justifyContent: V_FLEX[valign],
+        ...textDecorations(style),
+      }}
     >
       {resizer}
       {data.comment && (
@@ -72,7 +88,7 @@ export default function InitiativeNode({ id, data, selected }) {
           💬
         </span>
       )}
-      <div className="p-[0.85em]">
+      <div className="p-[0.85em]" style={{ textAlign: H_TEXT[align] }}>
         <p className="uppercase tracking-wide opacity-50" style={{ fontSize: '0.72em' }}>
           {d.type}
         </p>
@@ -82,7 +98,10 @@ export default function InitiativeNode({ id, data, selected }) {
         <p className="opacity-60" style={{ fontSize: '0.8em' }}>
           {done ? 'Funnel complete' : `Gate ${d.currentGateOrder}/${total} · ${gate?.name}`}
         </p>
-        <div className="mt-[0.45em] flex flex-wrap gap-[0.3em]">
+        <div
+          className="mt-[0.45em] flex flex-wrap gap-[0.3em]"
+          style={{ justifyContent: H_FLEX[align] }}
+        >
           {tags.length === 0 ? (
             <span className="opacity-50" style={{ fontSize: '0.72em' }}>
               in progress

@@ -32,7 +32,12 @@ export function scaledFont(style, refW, refH, size) {
   return Math.max(6, base * Math.sqrt(sw * sh));
 }
 
-// Inline CSS for the font-style toggles.
+// Alignment maps: horizontal → text-align, vertical → flex alignment.
+export const H_TEXT = { left: 'left', center: 'center', right: 'right' };
+export const V_FLEX = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+export const H_FLEX = { left: 'flex-start', center: 'center', right: 'flex-end' };
+
+// Inline CSS for the font-style toggles + font family.
 export function textDecorations(style = {}) {
   const deco = [style.underline && 'underline', style.strike && 'line-through']
     .filter(Boolean)
@@ -41,7 +46,9 @@ export function textDecorations(style = {}) {
     fontWeight: style.bold ? 700 : undefined,
     fontStyle: style.italic ? 'italic' : undefined,
     textDecoration: deco || undefined,
-    fontFamily: style.code ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined,
+    fontFamily: style.code
+      ? 'ui-monospace, SFMono-Regular, Menlo, monospace'
+      : style.fontFamily || undefined,
   };
 }
 

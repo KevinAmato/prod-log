@@ -32,7 +32,6 @@ const nodeTypes = {
 const edgeTypes = { floating: FloatingEdge };
 const ACCENT = '#b5562e';
 const DRAG_MIME = 'application/diligence-initiative';
-const MARKER = { type: MarkerType.ArrowClosed, color: ACCENT, width: 18, height: 18 };
 
 // Build the React Flow `data` payload for a stored element.
 function nodeData(el) {
@@ -102,13 +101,33 @@ function Canvas({ onOpenDecision }) {
       const byId = new Map(prev.map((e) => [e.id, e]));
       return state.map.edges.map((e) => {
         const arrow = e.arrow || 'end';
+        const color = e.color || ACCENT;
+        const width = e.width || 1.5;
+        const dash =
+          e.lineStyle === 'dashed'
+            ? `${Math.max(6, width * 4)} ${Math.max(4, width * 3)}`
+            : e.lineStyle === 'dotted'
+            ? `${width} ${width * 3}`
+            : undefined;
+        const marker = {
+          type: MarkerType.ArrowClosed,
+          color,
+          width: 14 + width * 2.5,
+          height: 14 + width * 2.5,
+        };
         const base = {
           id: e.id,
           source: e.source,
           target: e.target,
           type: 'floating',
-          markerEnd: arrow === 'end' || arrow === 'both' ? MARKER : undefined,
-          markerStart: arrow === 'start' || arrow === 'both' ? MARKER : undefined,
+          style: {
+            stroke: color,
+            strokeWidth: width,
+            strokeDasharray: dash,
+            strokeLinecap: e.lineStyle === 'dotted' ? 'round' : 'butt',
+          },
+          markerEnd: arrow === 'end' || arrow === 'both' ? marker : undefined,
+          markerStart: arrow === 'start' || arrow === 'both' ? marker : undefined,
           data: { comment: e.comment },
         };
         const existing = byId.get(e.id);

@@ -1,7 +1,14 @@
 import { useRef, useState } from 'react';
 import { NodeResizer } from '@xyflow/react';
 import { useStore } from '../../store/StoreContext.jsx';
-import { useNodeSize, scaledFont, textDecorations, commitResize } from '../../lib/canvasText.js';
+import {
+  useNodeSize,
+  scaledFont,
+  textDecorations,
+  commitResize,
+  H_TEXT,
+  V_FLEX,
+} from '../../lib/canvasText.js';
 import NodeHandles from './NodeHandles.jsx';
 
 const ACCENT = '#b5562e';
@@ -21,7 +28,9 @@ export default function TextNode({ id, data, selected }) {
   const refW = data.width || DEFAULTS[0];
   const refH = data.height || DEFAULTS[1];
   const font = scaledFont(style, refW, refH, size);
-  const textStyle = { color, fontSize: font, ...textDecorations(style) };
+  const align = style.align || 'left';
+  const valign = style.valign || 'top';
+  const textStyle = { color, fontSize: font, textAlign: H_TEXT[align], ...textDecorations(style) };
 
   const commit = () => {
     setEditing(false);
@@ -46,8 +55,8 @@ export default function TextNode({ id, data, selected }) {
         </span>
       )}
       <div
-        className="h-full w-full rounded px-1 py-0.5"
-        style={{ background: style.bg || 'transparent' }}
+        className="flex h-full w-full flex-col rounded px-1 py-0.5"
+        style={{ background: style.bg || 'transparent', justifyContent: V_FLEX[valign] }}
         onDoubleClick={() => setEditing(true)}
       >
         {editing ? (

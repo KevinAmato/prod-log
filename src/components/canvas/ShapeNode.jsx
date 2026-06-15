@@ -1,7 +1,14 @@
 import { useRef, useState } from 'react';
 import { NodeResizer } from '@xyflow/react';
 import { useStore } from '../../store/StoreContext.jsx';
-import { useNodeSize, scaledFont, textDecorations, commitResize } from '../../lib/canvasText.js';
+import {
+  useNodeSize,
+  scaledFont,
+  textDecorations,
+  commitResize,
+  H_TEXT,
+  V_FLEX,
+} from '../../lib/canvasText.js';
 import NodeHandles from './NodeHandles.jsx';
 
 const DIAMOND = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
@@ -24,13 +31,22 @@ export default function ShapeNode({ id, data, selected }) {
   const refH = data.height || dh;
   const font = scaledFont(style, refW, refH, size);
 
+  const align = style.align || 'center';
+  const valign = style.valign || 'middle';
   const shapeStyle = {
     background: bg,
     color,
     borderRadius: shape === 'ellipse' ? '50%' : shape === 'diamond' ? 0 : 10,
+    alignItems: V_FLEX[valign],
     ...(shape === 'diamond' ? { clipPath: DIAMOND } : {}),
   };
-  const textStyle = { color, fontSize: font, ...textDecorations(style) };
+  const textStyle = {
+    color,
+    fontSize: font,
+    width: '100%',
+    textAlign: H_TEXT[align],
+    ...textDecorations(style),
+  };
 
   const commit = () => {
     setEditing(false);
@@ -55,14 +71,14 @@ export default function ShapeNode({ id, data, selected }) {
         </span>
       )}
       <div
-        className="flex h-full w-full items-center justify-center border border-black/10 p-2 text-center shadow-sm"
+        className="flex h-full w-full border border-black/10 p-2 shadow-sm"
         style={shapeStyle}
         onDoubleClick={() => setEditing(true)}
       >
         {editing ? (
           <textarea
             autoFocus
-            className="nodrag h-full w-full resize-none bg-transparent text-center outline-none"
+            className="nodrag h-full w-full resize-none bg-transparent outline-none"
             style={textStyle}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

@@ -1,20 +1,33 @@
 // Geometry for "floating" edges — the connection points are computed on each
 // node's border facing the other node, so an edge attaches at the natural point
 // regardless of which side handle started it. Adapted from the React Flow v12
-// floating-edges example for the v12 internal-node shape.
+// floating-edges example, hardened against a not-yet-measured node (falls back
+// to its declared width/height so the edge renders immediately).
+
+const dims = (node) => ({
+  w: node.measured?.width ?? node.width ?? 0,
+  h: node.measured?.height ?? node.height ?? 0,
+});
+
+export function nodeReady(node) {
+  if (!node) return false;
+  const { w, h } = dims(node);
+  return w > 0 && h > 0 && !!node.internals?.positionAbsolute;
+}
 
 function getNodeIntersection(intersectionNode, targetNode) {
-  const { width: iw, height: ih } = intersectionNode.measured;
+  const { w: iw, h: ih } = dims(intersectionNode);
   const intersectionNodePosition = intersectionNode.internals.positionAbsolute;
   const targetPosition = targetNode.internals.positionAbsolute;
+  const { w: tw, h: th } = dims(targetNode);
 
   const w = iw / 2;
   const h = ih / 2;
 
   const x2 = intersectionNodePosition.x + w;
   const y2 = intersectionNodePosition.y + h;
-  const x1 = targetPosition.x + targetNode.measured.width / 2;
-  const y1 = targetPosition.y + targetNode.measured.height / 2;
+  const x1 = targetPosition.x + tw / 2;
+  const y1 = targetPosition.y + th / 2;
 
   const xx1 = (x1 - x2) / (2 * w) - (y1 - y2) / (2 * h);
   const yy1 = (x1 - x2) / (2 * w) + (y1 - y2) / (2 * h);
@@ -28,12 +41,7 @@ function getNodeIntersection(intersectionNode, targetNode) {
 }
 
 export function getEdgeParams(source, target) {
-  const sourceIntersectionPoint = getNodeIntersection(source, target);
-  const targetIntersectionPoint = getNodeIntersection(target, source);
-  return {
-    sx: sourceIntersectionPoint.x,
-    sy: sourceIntersectionPoint.y,
-    tx: targetIntersectionPoint.x,
-    ty: targetIntersectionPoint.y,
-  };
+  const s = getNodeIntersection(source, target);
+  const t = getNodeIntersection(target, source);
+  return { sx: s.x, sy: s.y, tx: t.x, ty: t.y };
 }
