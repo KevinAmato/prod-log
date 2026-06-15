@@ -6,7 +6,8 @@ import {
   probeEvidence,
   getIdeationAngles,
   describeError,
-} from '../lib/anthropic.js';
+  hasKey,
+} from '../lib/ai.js';
 import { Button, Card, Skeleton, inputClass } from './ui.jsx';
 
 // One gate's interaction. The AI asks and probes; ADVANCEMENT AND SKIPPING ARE
@@ -15,7 +16,7 @@ import { Button, Card, Skeleton, inputClass } from './ui.jsx';
 export default function GatePanel({ decision, gate }) {
   const { state, actions } = useStore();
   const settings = state.settings;
-  const hasKey = !!settings.apiKey;
+  const keyed = hasKey(settings);
   const sections = gateSections(gate);
   const total = decisionTotal(decision);
 
@@ -45,7 +46,7 @@ export default function GatePanel({ decision, gate }) {
   // coreQuestion if there's no key or the call fails — the funnel still works.
   useEffect(() => {
     let cancelled = false;
-    if (!hasKey) {
+    if (!keyed) {
       setQuestion(gate.coreQuestion);
       return;
     }
@@ -92,7 +93,7 @@ export default function GatePanel({ decision, gate }) {
     setError('');
     // One probing follow-up, if the evidence looks thin. Never blocks: if a
     // probe is shown, the button becomes "Submit anyway".
-    if (hasKey && !probed) {
+    if (keyed && !probed) {
       setProbing(true);
       try {
         const res = await probeEvidence(settings, ctx, combinedText());
@@ -213,7 +214,7 @@ export default function GatePanel({ decision, gate }) {
             <Button variant="outline" onClick={() => setSkipping(true)}>
               Skip this gate
             </Button>
-            {hasKey && (
+            {keyed && (
               <Button variant="ghost" onClick={onIdeate} disabled={loadingAngles}>
                 {loadingAngles ? 'Thinking…' : "I'm stuck — give me angles"}
               </Button>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import { decisionGateAt, decisionTotal, DECISION_STATUSES } from '../config/gates.js';
 import { computeDiligence, needsPostLaunchReview, decisionLines } from '../lib/diligence.js';
+import { hasKey } from '../lib/ai.js';
 import DiligenceBadge from './DiligenceBadge.jsx';
 import NewDecisionModal from './NewDecisionModal.jsx';
 import BackupControls from './BackupControls.jsx';
@@ -31,7 +32,7 @@ export default function Backlog({ onOpen }) {
     return [...list].sort(SORTS[sort].fn);
   }, [state.decisions, statusFilter, sort]);
 
-  const noKey = !state.settings.apiKey;
+  const noKey = !hasKey(state.settings);
 
   return (
     <div>
@@ -48,8 +49,8 @@ export default function Backlog({ onOpen }) {
 
       {noKey && (
         <Card className="mt-4 border-accent/30 bg-accent/5 p-4 text-sm text-ink/80">
-          No Anthropic API key set — the funnel works with the built-in questions,
-          but AI-personalised questions and probing are off. Add a key in{' '}
+          No AI key set — the funnel works with the built-in questions, but
+          AI-personalised questions and probing are off. Add your provider's key in{' '}
           <span className="font-medium">Settings</span> to turn them on.
         </Card>
       )}

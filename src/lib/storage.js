@@ -17,8 +17,11 @@ export const emptyState = () => ({
   },
   decisions: [],
   settings: {
-    apiKey: null, // stored locally only; never sent anywhere except Anthropic
+    // Multi-provider BYOK. Keys live only in this browser. One key per provider
+    // so switching providers doesn't lose the others.
+    provider: 'anthropic', // 'anthropic' | 'openai' | 'gemini'
     model: 'claude-opus-4-8',
+    keys: { anthropic: '', openai: '', gemini: '' },
   },
   // Mapping/Roadmap canvas. `elements` holds every canvas item:
   //  - initiative: { id, type:'initiative', decisionId, x, y, style, comment }
@@ -32,6 +35,16 @@ export const emptyState = () => ({
     edges: [],
   },
 });
+
+// Upgrades the legacy single-key settings (`apiKey`) to the multi-provider shape.
+export function normalizeSettings(raw, base) {
+  const s = { ...base, ...(raw || {}) };
+  s.keys = { ...base.keys, ...(raw?.keys || {}) };
+  if (raw?.apiKey && !s.keys.anthropic) s.keys.anthropic = raw.apiKey; // migrate
+  if (!s.provider) s.provider = 'anthropic';
+  delete s.apiKey;
+  return s;
+}
 
 // Tolerates the legacy `{ nodes: {decisionId:{x,y}}, edges }` shape and upgrades
 // it to the unified `elements` model.
@@ -68,7 +81,7 @@ export function loadState() {
       ...base,
       ...parsed,
       profile: { ...base.profile, ...(parsed.profile || {}) },
-      settings: { ...base.settings, ...(parsed.settings || {}) },
+      settings: normalizeSettings(parsed.settings, base.settings),
       decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
       map: normalizeMap(parsed.map),
     };
@@ -107,7 +120,7 @@ export function parseImportedBlob(text) {
     ...base,
     ...parsed,
     profile: { ...base.profile, ...(parsed.profile || {}) },
-    settings: { ...base.settings, ...(parsed.settings || {}) },
+    settings: normalizeSettings(parsed.settings, base.settings),
     decisions: parsed.decisions,
     map: normalizeMap(parsed.map),
   };

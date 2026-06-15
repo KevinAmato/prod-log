@@ -1,27 +1,36 @@
 import { useState } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import { ARCHETYPES } from '../config/gates.js';
+import { PROVIDERS, MODEL_SUGGESTIONS, DEFAULT_MODEL } from '../lib/ai.js';
 import { Button, Field, inputClass } from './ui.jsx';
-
-const MODELS = [
-  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8 — most capable (default)' },
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 — balanced, cheaper' },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 — fastest, cheapest' },
-];
 
 export default function SettingsModal({ onClose }) {
   const { state, actions } = useStore();
-  const [apiKey, setApiKey] = useState(state.settings.apiKey || '');
-  const [model, setModel] = useState(state.settings.model || 'claude-opus-4-8');
+  const [provider, setProvider] = useState(state.settings.provider || 'anthropic');
+  const [model, setModel] = useState(state.settings.model || DEFAULT_MODEL.anthropic);
+  const [keys, setKeys] = useState(() => ({
+    anthropic: '',
+    openai: '',
+    gemini: '',
+    ...(state.settings.keys || {}),
+  }));
   const [pmType, setPmType] = useState(state.profile.pmType || '');
   const [archetype, setArchetype] = useState(state.profile.archetype || ARCHETYPES[0].id);
   const [productName, setProductName] = useState(state.profile.productName || '');
-  const [linesText, setLinesText] = useState(
-    (state.profile.productLines || []).join(', '),
-  );
+  const [linesText, setLinesText] = useState((state.profile.productLines || []).join(', '));
+
+  const providerMeta = PROVIDERS.find((p) => p.id === provider) || PROVIDERS[0];
+
+  const onProviderChange = (id) => {
+    setProvider(id);
+    setModel(DEFAULT_MODEL[id]); // sensible default for the new provider; editable
+  };
 
   const save = () => {
-    actions.saveSettings({ apiKey: apiKey.trim() || null, model });
+    const trimmedKeys = Object.fromEntries(
+      Object.entries(keys).map(([k, v]) => [k, (v || '').trim()]),
+    );
+    actions.saveSettings({ provider, model: model.trim(), keys: trimmedKeys });
     actions.saveProfile({
       pmType,
       archetype,
@@ -46,32 +55,50 @@ export default function SettingsModal({ onClose }) {
         <h2 className="text-lg font-semibold">Settings</h2>
 
         <div className="mt-5 space-y-5">
+          <Field label="AI provider" hint="Bring your own key — pick any provider.">
+            <select
+              className={inputClass}
+              value={provider}
+              onChange={(e) => onProviderChange(e.target.value)}
+            >
+              {PROVIDERS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
           <Field
-            label="Anthropic API key"
-            hint="Stored only in this browser (localStorage). Sent only to Anthropic, never to any server of ours."
+            label={`${providerMeta.label} API key`}
+            hint="Stored only in this browser (localStorage). Sent only to the provider, never to any server of ours."
           >
             <input
               className={inputClass}
               type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-ant-..."
+              value={keys[provider] || ''}
+              onChange={(e) => setKeys((k) => ({ ...k, [provider]: e.target.value }))}
+              placeholder={providerMeta.keyHint}
               autoComplete="off"
             />
           </Field>
 
-          <Field label="Model">
-            <select
+          <Field
+            label="Model"
+            hint="Type any model the provider offers — the suggestions are just shortcuts."
+          >
+            <input
               className={inputClass}
+              list="diligence-model-suggestions"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
+              placeholder={DEFAULT_MODEL[provider]}
+            />
+            <datalist id="diligence-model-suggestions">
+              {(MODEL_SUGGESTIONS[provider] || []).map((m) => (
+                <option key={m} value={m} />
               ))}
-            </select>
+            </datalist>
           </Field>
 
           <div className="border-t border-ink/10 pt-4">

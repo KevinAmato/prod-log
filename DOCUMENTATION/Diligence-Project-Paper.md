@@ -8,7 +8,7 @@
 | **Repo** | https://github.com/KevinAmato/prod-log (public) |
 | **Live app** | https://kevinamato.github.io/prod-log/ |
 | **Author** | Kevin Amato |
-| **Stack** | React + Vite + Tailwind, static SPA, BYOK Anthropic, `localStorage` |
+| **Stack** | React + Vite + Tailwind, static SPA, multi-provider BYOK (Anthropic / OpenAI / Gemini), `localStorage` |
 | **Running cost** | $0 — no backend, no database, no server-side inference |
 
 This paper is the single onboarding document. **Part I** is the product (read this if
@@ -212,7 +212,7 @@ data; generative PRD/artifact creation (deliberately excluded).
 | Framework | React 18 + Vite 6 | Fast, trivial static build |
 | Styling | Tailwind 3 | Speed; minimalist UI |
 | State | React state + a single `localStorage` JSON blob | No DB; free, local persistence |
-| AI | Anthropic Messages API via `@anthropic-ai/sdk`, **called directly from the browser** with the user's key (`dangerouslyAllowBrowser: true`) | BYOK = $0 inference cost to the operator |
+| AI | **Multi-provider BYOK** — Anthropic (`@anthropic-ai/sdk`), OpenAI, and Google Gemini, each called directly from the browser with the user's key. Any model id is allowed (free-text). | BYOK = $0 inference cost to the operator |
 | Hosting | GitHub Pages (live) / Cloudflare Pages (alt) | Free static hosting |
 
 **Why no backend:** the moment a server holds the API key, the *operator* pays for every
@@ -292,7 +292,8 @@ src/
 
   lib/
     storage.js              load/save the blob, export/import, emptyState, newId
-    anthropic.js            BYOK browser client; per-gate system prompt; 3 calls
+    ai.js                   Multi-provider BYOK (anthropic/openai/gemini) chat()
+                            dispatch; per-gate system prompt; 3 calls
                             (generateGateQuestion, probeEvidence, getIdeationAngles);
                             robust JSON extraction; describeError
     diligence.js            computeDiligence, diligenceLabel, diligenceTags,
