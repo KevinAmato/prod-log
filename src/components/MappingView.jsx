@@ -14,14 +14,21 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useStore } from '../store/StoreContext.jsx';
+import { newId } from '../lib/storage.js';
 import InitiativeNode from './InitiativeNode.jsx';
 import ShapeNode from './canvas/ShapeNode.jsx';
 import TextNode from './canvas/TextNode.jsx';
+import CommentNode from './canvas/CommentNode.jsx';
 import FloatingEdge from './canvas/FloatingEdge.jsx';
 import CanvasToolbar from './canvas/CanvasToolbar.jsx';
 import SelectionPanel from './canvas/SelectionPanel.jsx';
 
-const nodeTypes = { initiative: InitiativeNode, shape: ShapeNode, text: TextNode };
+const nodeTypes = {
+  initiative: InitiativeNode,
+  shape: ShapeNode,
+  text: TextNode,
+  comment: CommentNode,
+};
 const edgeTypes = { floating: FloatingEdge };
 const ACCENT = '#b5562e';
 const DRAG_MIME = 'application/diligence-initiative';
@@ -48,6 +55,9 @@ function nodeData(el) {
       height: el.height,
     };
   }
+  if (el.type === 'comment') {
+    return { text: el.text };
+  }
   return { text: el.text, style: el.style, comment: el.comment, width: el.width };
 }
 
@@ -55,6 +65,7 @@ function Canvas({ onOpenDecision }) {
   const { state, actions } = useStore();
   const { screenToFlowPosition } = useReactFlow();
   const wrapperRef = useRef(null);
+  const pointer = useRef({ x: 0, y: 0 }); // last cursor position over the canvas
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -73,14 +84,15 @@ function Canvas({ onOpenDecision }) {
       return state.map.elements.map((el) => {
         const existing = byId.get(el.id);
         const data = nodeData(el);
+        if (existing) return { ...existing, type: el.type, data };
         // Size only seeds new nodes; once mounted, NodeResizer owns the box (so
-        // a live resize isn't clobbered by reconciliation). Fallback dims cover
-        // cards/elements placed before sizing existed.
-        const width = el.width || (el.type === 'initiative' ? 224 : el.type === 'shape' ? 168 : 200);
-        const height = el.height || (el.type === 'initiative' ? 132 : el.type === 'shape' ? 96 : 44);
-        return existing
-          ? { ...existing, type: el.type, data }
-          : { id: el.id, type: el.type, position: { x: el.x, y: el.y }, data, width, height };
+        // a live resize isn't clobbered by reconciliation). Comments auto-size.
+        const node = { id: el.id, type: el.type, position: { x: el.x, y: el.y }, data };
+        if (el.type === 'initiative' || el.type === 'shape' || el.type === 'text') {
+          node.width = el.width || (el.type === 'initiative' ? 224 : el.type === 'shape' ? 168 : 200);
+          node.height = el.height || (el.type === 'initiative' ? 132 : el.type === 'shape' ? 96 : 44);
+        }
+        return node;
       });
     });
   }, [state.map.elements, setNodes]);
@@ -120,8 +132,12 @@ function Canvas({ onOpenDecision }) {
     [actions],
   );
 
+  // Comment pins manage themselves — keep them out of the style toolbar.
   const onSelectionChange = useCallback(({ nodes: sn, edges: se }) => {
-    setSelection({ nodeIds: sn.map((n) => n.id), edgeIds: se.map((e) => e.id) });
+    setSelection({
+      nodeIds: sn.filter((n) => n.type !== 'comment').map((n) => n.id),
+      edgeIds: se.map((e) => e.id),
+    });
   }, []);
 
   const onDragOver = useCallback((e) => {
@@ -140,19 +156,24 @@ function Canvas({ onOpenDecision }) {
     [screenToFlowPosition, actions],
   );
 
-  // Delete selection on Delete/Backspace — but only when not editing a field
-  // (RF's own delete key is disabled, so typing a comment can't nuke the node).
+  // Keyboard: Delete removes the selection; "C" drops a comment pin at the
+  // cursor. Both are ignored while typing in a field.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
       const t = document.activeElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      if (selection.nodeIds.length) actions.removeElements(selection.nodeIds);
-      if (selection.edgeIds.length) actions.removeMapEdges(selection.edgeIds);
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selection.nodeIds.length) actions.removeElements(selection.nodeIds);
+        if (selection.edgeIds.length) actions.removeMapEdges(selection.edgeIds);
+      } else if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const pos = screenToFlowPosition(pointer.current);
+        actions.addElement({ id: newId(), type: 'comment', x: pos.x, y: pos.y, text: '' });
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selection, actions]);
+  }, [selection, actions, screenToFlowPosition]);
 
   const placedInitiativeIds = new Set(
     state.map.elements.filter((el) => el.type === 'initiative').map((el) => el.decisionId),
@@ -160,7 +181,13 @@ function Canvas({ onOpenDecision }) {
   const unplaced = state.decisions.filter((d) => !placedInitiativeIds.has(d.id));
 
   return (
-    <div className="relative h-full w-full" ref={wrapperRef}>
+    <div
+      className="relative h-full w-full"
+      ref={wrapperRef}
+      onPointerMove={(e) => {
+        pointer.current = { x: e.clientX, y: e.clientY };
+      }}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
