@@ -186,8 +186,9 @@ sequencing, discovery trees, theme clusters.
   Double-click a node to open that decision.
 - **Speed shortcuts:** `R`/`O`/`D` add rectangle/ellipse/diamond and `T` adds text at the
   cursor; `F` adds a frame; arrow keys nudge the selection (Shift = 10px); `Ctrl/Cmd+D`
-  duplicates; `Ctrl/Cmd+C/X/V` copy/cut/paste; dragging a node snaps to alignment guides
-  against its neighbours.
+  duplicates; `Ctrl/Cmd+C/X/V` copy/cut/paste (pasted copies land *on top*); `]` / `[`
+  bring the selection to front / send it to back; dragging a node snaps to alignment
+  guides against its neighbours. Stacking follows element order, so it's deterministic.
 - **Frames + presentation:** `F` (or the toolbar) drops a labelled container (defaults
   Now / Next / Later) that sits *behind* the cards and is click-through, so the cards
   inside stay fully interactive — drag a frame by its title bar, resize from its edges.

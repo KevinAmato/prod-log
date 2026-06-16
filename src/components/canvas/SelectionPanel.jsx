@@ -109,6 +109,17 @@ function LineIcon({ variant }) {
   );
 }
 
+// Two overlapping squares; the filled one shows which layer the action targets
+// (front = top square solid, back = bottom square solid).
+function ZIcon({ front }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15">
+      <rect x="2" y="2" width="8" height="8" rx="1.5" fill={front ? 'none' : 'currentColor'} stroke="currentColor" strokeWidth="1.3" />
+      <rect x="5" y="5" width="8" height="8" rx="1.5" fill={front ? 'currentColor' : 'rgb(var(--paper))'} stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
 const Stepper = ({ value, onDec, onInc }) => (
   <div className="flex shrink-0 items-center rounded-md border border-ink/15">
     <button className="px-2 py-1 text-ink/60 hover:bg-ink/5" onClick={onDec}>
@@ -205,6 +216,15 @@ export default function SelectionPanel({ nodeIds, edgeIds }) {
                 <VAlign dir={dir} />
               </button>
             ))}
+          </div>
+          <Divider />
+          <div className="flex shrink-0 overflow-hidden rounded-md border border-ink/15">
+            <button title="Bring to front  ]" onClick={() => actions.bringToFront(nodeIds)} className={seg(false)}>
+              <ZIcon front />
+            </button>
+            <button title="Send to back  [" onClick={() => actions.sendToBack(nodeIds)} className={seg(false)}>
+              <ZIcon />
+            </button>
           </div>
         </>
       )}

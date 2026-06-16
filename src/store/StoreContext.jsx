@@ -248,6 +248,29 @@ export function StoreProvider({ children }) {
         }));
       },
 
+      // Z-order: stacking follows array order (later in `elements` = on top), so
+      // reordering restacks. Frames are always pinned behind at render time (see
+      // the MappingView reconcile), so these are safe on any selection.
+      bringToFront(ids) {
+        const set = new Set(ids);
+        setState((s) => {
+          if (!ids.length) return s;
+          const sel = s.map.elements.filter((e) => set.has(e.id));
+          const rest = s.map.elements.filter((e) => !set.has(e.id));
+          return { ...s, map: { ...s.map, elements: [...rest, ...sel] } };
+        });
+      },
+
+      sendToBack(ids) {
+        const set = new Set(ids);
+        setState((s) => {
+          if (!ids.length) return s;
+          const sel = s.map.elements.filter((e) => set.has(e.id));
+          const rest = s.map.elements.filter((e) => !set.has(e.id));
+          return { ...s, map: { ...s.map, elements: [...sel, ...rest] } };
+        });
+      },
+
       addMapEdge({ source, target }) {
         if (!source || !target || source === target) return;
         setState((s) => {

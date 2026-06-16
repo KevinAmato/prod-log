@@ -414,6 +414,12 @@ function Canvas({ onOpenDecision }) {
           ArrowRight: [step, 0],
         }[e.key];
         if (delta) actions.nudgeElements(selection.nodeIds, delta[0], delta[1]);
+      } else if (e.key === ']' && selection.nodeIds.length) {
+        e.preventDefault();
+        actions.bringToFront(selection.nodeIds);
+      } else if (e.key === '[' && selection.nodeIds.length) {
+        e.preventDefault();
+        actions.sendToBack(selection.nodeIds);
       } else if (!mod && !e.altKey && k === 'r') {
         addShapeAt('rectangle');
       } else if (!mod && !e.altKey && k === 'o') {
@@ -474,6 +480,7 @@ function Canvas({ onOpenDecision }) {
         nodesConnectable={!presenting}
         elementsSelectable={!presenting}
         zoomOnDoubleClick={false}
+        elevateNodesOnSelect={false}
         colorMode={theme}
         fitView
         minZoom={0.2}
@@ -511,7 +518,8 @@ function Canvas({ onOpenDecision }) {
           <p className="max-w-xs text-center text-sm text-ink/40">
             Drag initiatives from the panel onto the canvas, or press R / O / D / T to add
             shapes & text at the cursor. F adds a frame. Drag from any edge to connect —
-            release on empty space to spawn a connected node.
+            release on empty space to spawn a connected node. With something selected,
+            ] brings it to the front and [ sends it to the back.
           </p>
         </div>
       )}
