@@ -6,6 +6,7 @@ import { hasKey } from '../lib/ai.js';
 import DiligenceBadge from './DiligenceBadge.jsx';
 import NewDecisionModal from './NewDecisionModal.jsx';
 import BackupControls from './BackupControls.jsx';
+import CopyButton from './CopyButton.jsx';
 import { Button, Card, Pill } from './ui.jsx';
 
 const SORTS = {
@@ -120,7 +121,10 @@ export default function Backlog({ onOpen }) {
                     </span>
                   </div>
                 </div>
-                {needsPostLaunchReview(d) && <Pill tone="flag">loop open</Pill>}
+                <div className="flex shrink-0 items-center gap-2">
+                  {needsPostLaunchReview(d) && <Pill tone="flag">loop open</Pill>}
+                  <CopyButton decision={d} className="p-1.5" />
+                </div>
               </div>
               <div className="mt-3">
                 <DiligenceBadge decision={d} />

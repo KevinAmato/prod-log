@@ -20,10 +20,12 @@ import InitiativeNode from './InitiativeNode.jsx';
 import ShapeNode from './canvas/ShapeNode.jsx';
 import TextNode from './canvas/TextNode.jsx';
 import CommentNode from './canvas/CommentNode.jsx';
+import FrameNode from './canvas/FrameNode.jsx';
 import FloatingEdge from './canvas/FloatingEdge.jsx';
 import HelperLines from './canvas/HelperLines.jsx';
 import CanvasToolbar from './canvas/CanvasToolbar.jsx';
 import SelectionPanel from './canvas/SelectionPanel.jsx';
+import PresentationMode from './canvas/PresentationMode.jsx';
 
 const SHAPE_SIZES = { rectangle: [168, 96], ellipse: [120, 120], diamond: [140, 100] };
 
@@ -32,6 +34,7 @@ const nodeTypes = {
   shape: ShapeNode,
   text: TextNode,
   comment: CommentNode,
+  frame: FrameNode,
 };
 const edgeTypes = { floating: FloatingEdge };
 const ACCENT = '#b5562e';
@@ -61,6 +64,9 @@ function nodeData(el) {
   if (el.type === 'comment') {
     return { text: el.text };
   }
+  if (el.type === 'frame') {
+    return { title: el.title, style: el.style, comment: el.comment };
+  }
   return { text: el.text, style: el.style, comment: el.comment, width: el.width };
 }
 
@@ -76,6 +82,7 @@ function Canvas({ onOpenDecision }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selection, setSelection] = useState({ nodeIds: [], edgeIds: [] });
   const [helperLines, setHelperLines] = useState({});
+  const [presenting, setPresenting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window === 'undefined' || window.innerWidth >= 640,
   );
@@ -108,19 +115,34 @@ function Canvas({ onOpenDecision }) {
   useEffect(() => {
     setNodes((prev) => {
       const byId = new Map(prev.map((n) => [n.id, n]));
-      return state.map.elements.map((el) => {
+      const mapped = state.map.elements.map((el) => {
         const existing = byId.get(el.id);
         const data = nodeData(el);
         if (existing) return { ...existing, type: el.type, data };
         // Size only seeds new nodes; once mounted, NodeResizer owns the box (so
         // a live resize isn't clobbered by reconciliation). Comments auto-size.
         const node = { id: el.id, type: el.type, position: { x: el.x, y: el.y }, data };
-        if (el.type === 'initiative' || el.type === 'shape' || el.type === 'text') {
-          node.width = el.width || (el.type === 'initiative' ? 224 : el.type === 'shape' ? 168 : 200);
-          node.height = el.height || (el.type === 'initiative' ? 132 : el.type === 'shape' ? 96 : 44);
+        if (el.type === 'initiative' || el.type === 'shape' || el.type === 'text' || el.type === 'frame') {
+          node.width =
+            el.width ||
+            (el.type === 'initiative' ? 224 : el.type === 'shape' ? 168 : el.type === 'frame' ? 520 : 200);
+          node.height =
+            el.height ||
+            (el.type === 'initiative' ? 132 : el.type === 'shape' ? 96 : el.type === 'frame' ? 360 : 44);
+        }
+        // Frames are only draggable by their title bar so dragging inside one
+        // moves the cards, not the frame. pointer-events:none on the wrapper lets
+        // clicks fall through the body to the cards on top (and to the pane for
+        // rubber-band selection); the title bar + resize handles re-enable
+        // pointer events on themselves.
+        if (el.type === 'frame') {
+          node.dragHandle = '.frame-drag';
+          node.style = { pointerEvents: 'none' };
         }
         return node;
       });
+      // Render frames behind everything else (earlier in the array = lower z).
+      return mapped.sort((a, b) => (a.type === 'frame' ? -1 : 0) - (b.type === 'frame' ? -1 : 0));
     });
   }, [state.map.elements, setNodes]);
 
@@ -321,6 +343,23 @@ function Canvas({ onOpenDecision }) {
     });
   };
 
+  const addFrameAt = () => {
+    const pos = screenToFlowPosition(pointer.current);
+    const order = state.map.elements.filter((e) => e.type === 'frame').length;
+    actions.addElement({
+      id: newId(),
+      type: 'frame',
+      x: pos.x - 260,
+      y: pos.y - 180,
+      width: 520,
+      height: 360,
+      title: ['Now', 'Next', 'Later'][order] || `Frame ${order + 1}`,
+      order,
+      style: {},
+      comment: '',
+    });
+  };
+
   const addTextAt = () => {
     const pos = screenToFlowPosition(pointer.current);
     actions.addElement({
@@ -340,6 +379,7 @@ function Canvas({ onOpenDecision }) {
   // (so text copy/paste still works there).
   useEffect(() => {
     const onKey = (e) => {
+      if (presenting) return; // PresentationMode owns the keyboard while active
       const t = document.activeElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const mod = e.ctrlKey || e.metaKey;
@@ -382,6 +422,8 @@ function Canvas({ onOpenDecision }) {
         addShapeAt('diamond');
       } else if (!mod && !e.altKey && k === 't') {
         addTextAt();
+      } else if (!mod && !e.altKey && k === 'f') {
+        addFrameAt();
       } else if (!mod && !e.altKey && k === 'c') {
         const pos = screenToFlowPosition(pointer.current);
         actions.addElement({ id: newId(), type: 'comment', x: pos.x, y: pos.y, text: '' });
@@ -390,12 +432,17 @@ function Canvas({ onOpenDecision }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selection, actions, screenToFlowPosition, state.map.elements, state.map.edges]);
+  }, [selection, actions, screenToFlowPosition, state.map.elements, state.map.edges, presenting]);
 
   const placedInitiativeIds = new Set(
     state.map.elements.filter((el) => el.type === 'initiative').map((el) => el.decisionId),
   );
   const unplaced = state.decisions.filter((d) => !placedInitiativeIds.has(d.id));
+
+  // Frames, in presentation order (creation order via `order`).
+  const frames = state.map.elements
+    .filter((el) => el.type === 'frame')
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   return (
     <div
@@ -421,8 +468,11 @@ function Canvas({ onOpenDecision }) {
         onDrop={onDrop}
         onDragOver={onDragOver}
         deleteKeyCode={null}
-        panOnDrag={[1, 2]}
-        selectionOnDrag
+        panOnDrag={presenting ? [0, 1, 2] : [1, 2]}
+        selectionOnDrag={!presenting}
+        nodesDraggable={!presenting}
+        nodesConnectable={!presenting}
+        elementsSelectable={!presenting}
         zoomOnDoubleClick={false}
         colorMode={theme}
         fitView
@@ -436,33 +486,47 @@ function Canvas({ onOpenDecision }) {
           size={1}
           color={theme === 'dark' ? '#3a3631' : '#cbc6ba'}
         />
-        <Controls showInteractive={false} />
-        <MiniMap className="hidden md:block" pannable zoomable />
+        {!presenting && <Controls showInteractive={false} />}
+        {!presenting && <MiniMap className="hidden md:block" pannable zoomable />}
         <HelperLines horizontal={helperLines.horizontal} vertical={helperLines.vertical} />
       </ReactFlow>
 
-      <CanvasToolbar wrapperRef={wrapperRef} />
-      <SelectionPanel nodeIds={selection.nodeIds} edgeIds={selection.edgeIds} />
+      {presenting && (
+        <PresentationMode frames={frames} onExit={() => setPresenting(false)} />
+      )}
 
-      {nodes.length === 0 && (
+      {!presenting && (
+        <>
+          <CanvasToolbar
+            wrapperRef={wrapperRef}
+            frameCount={frames.length}
+            onPresent={() => frames.length && setPresenting(true)}
+          />
+          <SelectionPanel nodeIds={selection.nodeIds} edgeIds={selection.edgeIds} />
+        </>
+      )}
+
+      {!presenting && nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="max-w-xs text-center text-sm text-ink/40">
             Drag initiatives from the panel onto the canvas, or press R / O / D / T to add
-            shapes & text at the cursor. Drag from any edge to connect — release on empty
-            space to spawn a connected node.
+            shapes & text at the cursor. F adds a frame. Drag from any edge to connect —
+            release on empty space to spawn a connected node.
           </p>
         </div>
       )}
 
       {/* Unplaced-initiatives drawer */}
-      <button
-        onClick={() => setSidebarOpen((o) => !o)}
-        className="absolute left-3 top-3 z-10 rounded-md border border-ink/15 bg-paper/95 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur"
-      >
-        {sidebarOpen ? 'Hide' : 'Initiatives'} ({unplaced.length})
-      </button>
+      {!presenting && (
+        <button
+          onClick={() => setSidebarOpen((o) => !o)}
+          className="absolute left-3 top-3 z-10 rounded-md border border-ink/15 bg-paper/95 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur"
+        >
+          {sidebarOpen ? 'Hide' : 'Initiatives'} ({unplaced.length})
+        </button>
+      )}
 
-      {sidebarOpen && (
+      {!presenting && sidebarOpen && (
         <aside className="absolute bottom-3 left-3 top-14 z-10 flex w-64 max-w-[80vw] flex-col rounded-lg border border-ink/10 bg-paper/95 shadow-lg backdrop-blur">
           <p className="border-b border-ink/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink/50">
             Unplaced initiatives

@@ -181,13 +181,27 @@ sequencing, discovery trees, theme clusters.
   the canvas to place it at the cursor. Collapsed by default on phones.
 - **Rich nodes:** each card reads its content live from the central store by id — title,
   type, current gate, and diligence tags — so any edit elsewhere reflects instantly.
-- **Connectors:** drag from a card's right edge to another card to draw a directional
-  dependency arrow. Double-click a node to open that decision.
-- **Single source of truth:** the map stores only *layout* (`map.nodes` positions +
-  `map.edges`) in the same `localStorage` blob; it never duplicates initiative content.
-  Layout persists across refreshes.
-- **Structural, not freeform:** discrete backlog cards + connecting arrows (sticky notes
-  are a planned addition); no freehand drawing.
+- **Connectors:** drag from any edge of a card to another to draw a directional
+  dependency arrow; release on empty space to spawn a connected node (quick-connect).
+  Double-click a node to open that decision.
+- **Speed shortcuts:** `R`/`O`/`D` add rectangle/ellipse/diamond and `T` adds text at the
+  cursor; `F` adds a frame; arrow keys nudge the selection (Shift = 10px); `Ctrl/Cmd+D`
+  duplicates; `Ctrl/Cmd+C/X/V` copy/cut/paste; dragging a node snaps to alignment guides
+  against its neighbours.
+- **Frames + presentation:** `F` (or the toolbar) drops a labelled container (defaults
+  Now / Next / Later) that sits *behind* the cards and is click-through, so the cards
+  inside stay fully interactive — drag a frame by its title bar, resize from its edges.
+  The ▶ button steps through frames full-screen as slides (← → / Space / on-screen arrows,
+  Esc to exit), flying the viewport to fit each frame. Membership is geometric, so there's
+  no nesting in the data model.
+- **Copy to clipboard:** every initiative card (backlog and canvas) has a copy button that
+  flattens the whole decision — overview + every gate's recorded values — to plain text for
+  pasting into Jira / Airtable / docs.
+- **Single source of truth:** the map stores only *layout* (`map.elements` + `map.edges`)
+  in the same `localStorage` blob; it never duplicates initiative content. Layout persists
+  across refreshes.
+- **Structural, not freeform:** discrete cards, shapes, text, frames + connecting arrows;
+  no freehand drawing.
 
 ## 10. Success metrics (for the tool itself)
 

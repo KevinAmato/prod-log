@@ -4,8 +4,8 @@ import { newId } from '../../lib/storage.js';
 
 // Places new shapes/text near the centre of the current viewport (with a little
 // jitter so repeated clicks don't stack exactly).
-export default function CanvasToolbar({ wrapperRef }) {
-  const { actions } = useStore();
+export default function CanvasToolbar({ wrapperRef, onPresent, frameCount = 0 }) {
+  const { state, actions } = useStore();
   const { screenToFlowPosition } = useReactFlow();
 
   const place = (factory) => {
@@ -48,6 +48,24 @@ export default function CanvasToolbar({ wrapperRef }) {
       comment: '',
     }));
 
+  // Frames sit behind everything and are ordered by creation for presentation.
+  const addFrame = () =>
+    place((pos) => {
+      const order = state.map.elements.filter((e) => e.type === 'frame').length;
+      return {
+        id: newId(),
+        type: 'frame',
+        x: pos.x - 100,
+        y: pos.y - 80,
+        width: 520,
+        height: 360,
+        title: ['Now', 'Next', 'Later'][order] || `Frame ${order + 1}`,
+        order,
+        style: {},
+        comment: '',
+      };
+    });
+
   const btn = 'rounded px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5';
 
   return (
@@ -64,6 +82,20 @@ export default function CanvasToolbar({ wrapperRef }) {
       <span className="mx-0.5 h-5 w-px bg-ink/10" />
       <button className={`${btn} font-semibold`} title="Text" onClick={addText}>
         T
+      </button>
+      <span className="mx-0.5 h-5 w-px bg-ink/10" />
+      <button className={btn} title="Frame (group / swimlane)" onClick={addFrame}>
+        <span className="inline-block h-3.5 w-4 rounded-[3px] border-2 border-dashed border-current align-middle" />
+      </button>
+      <button
+        className={`${btn} disabled:cursor-not-allowed disabled:opacity-40`}
+        title={frameCount ? 'Present frames as slides' : 'Add a frame first to present'}
+        onClick={onPresent}
+        disabled={!frameCount}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" className="align-middle">
+          <path d="M8 5v14l11-7z" />
+        </svg>
       </button>
     </div>
   );

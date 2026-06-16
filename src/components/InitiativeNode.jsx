@@ -13,6 +13,7 @@ import {
   H_FLEX,
 } from '../lib/canvasText.js';
 import NodeHandles from './canvas/NodeHandles.jsx';
+import CopyButton from './CopyButton.jsx';
 
 const ACCENT = '#b5562e';
 export const INITIATIVE_DEFAULT = { width: 224, height: 132 };
@@ -80,6 +81,11 @@ export default function InitiativeNode({ id, data, selected }) {
       }}
     >
       {resizer}
+      <CopyButton
+        decision={d}
+        size={13}
+        className="absolute right-1 top-1 z-20 bg-surface/80 p-1 opacity-0 group-hover:opacity-100"
+      />
       {data.comment && (
         <span
           title={data.comment}
