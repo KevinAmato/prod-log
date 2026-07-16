@@ -9,8 +9,8 @@
 
 import { mergeStates, stateSignature } from './merge.js';
 
-// Set after `wrangler deploy` — the worker's public URL.
-export const DEFAULT_ENDPOINT = 'https://prodlog-sync.kevinamato.workers.dev';
+// The deployed worker's public URL (sync-worker/, `wrangler deploy`).
+export const DEFAULT_ENDPOINT = 'https://prodlog-sync.amatokevinp.workers.dev';
 
 const CFG_KEY = 'prodlog_sync_v1';
 

@@ -6,6 +6,4 @@ compatibility_date = "2026-04-01"
 
 [[kv_namespaces]]
 binding = "STATE"
-# Placeholder for local dev (miniflare ignores it). Before the first real
-# deploy run:  npx wrangler kv namespace create STATE   and paste the id here.
-id = "00000000000000000000000000000000"
+id = "699afe9c9ebe49b097a940737f0a6ea8"

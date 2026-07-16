@@ -54,10 +54,28 @@ title, no navigation between capture and view.
 - **Dark mode**, **export/import backup** (JSON file — also the way a board moves
   between devices).
 
-## 4. Deliberate non-features
+## 4. Cross-device sync (July 2026)
 
-- No accounts, no sync, no sharing — single user, local-first (localStorage).
-- No due dates, labels, estimates, or priorities-as-fields — order *is* priority.
+Local-first with an optional relay: **Menu → Sync devices** creates a secret
+sync key (`plog_…`); enter the same key on another device and both converge.
+No accounts. The relay is a ~100-line Cloudflare Worker (`sync-worker/`) +
+KV — free forever (100k req/day, 1k KV writes/day ≫ actual usage), deployed
+at `https://prodlog-sync.amatokevinp.workers.dev`.
+
+- Sync runs on load, on tab focus, and debounced 4 s after any edit.
+- Merge rules (`src/lib/merge.js`): never lose a task (union + tombstones for
+  permanent deletions); per-card last-write-wins via `updatedAt`; the overall
+  newer device wins order/columns/categories/prefs.
+- Optimistic concurrency: pushes carry `baseRev`; a 409 returns the current
+  server state for one merge-and-retry.
+- The key is the credential: only its SHA-256 is used as the KV key server-side.
+- Redeploy the worker: `cd sync-worker && npx wrangler deploy` (needs
+  `wrangler login`).
+
+## 5. Deliberate non-features
+
+- No accounts and no sharing — single user, key-based sync only.
+- No estimates or priorities-as-fields — order *is* priority.
 - No AI (v1). Voice capture is a candidate v2 feature (Web Speech API).
 
 ---
