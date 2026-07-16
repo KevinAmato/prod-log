@@ -1,15 +1,24 @@
 import { useState } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import Column from './Column.jsx';
+import { isOverdue } from '../lib/dates.js';
 
 // The live board. Mobile-first: columns are near-full-width and snap-scroll
 // horizontally (swipe between Short term / Long term); on desktop they simply
 // sit side by side. A ghost column at the end adds new columns.
+// Board-level filters (category color / overdue) come from prefs — set via the
+// funnel button in the header.
 export default function Board() {
   const { state, actions } = useStore();
   const [addingCol, setAddingCol] = useState(false);
 
-  const liveCards = state.cards.filter((c) => c.status === 'live');
+  const { filterCategoryId, filterOverdue } = state.prefs;
+  const liveCards = state.cards.filter(
+    (c) =>
+      c.status === 'live' &&
+      (!filterCategoryId || c.categoryId === filterCategoryId) &&
+      (!filterOverdue || isOverdue(c.dueDate)),
+  );
 
   return (
     <div

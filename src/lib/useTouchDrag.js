@@ -11,6 +11,16 @@ import { useEffect } from 'react';
 //   - Dragging to the screen edge auto-scrolls the board to the next column;
 //     top/bottom edges of a column auto-scroll its list
 //
+// WHY the touchmove handling below is subtle: on real devices the browser
+// claims the gesture for native scrolling on the first unprevented touchmove
+// and then fires pointercancel — which would kill the drag right as it starts
+// (pointer events for touch are implicitly captured, but cancel still fires).
+// So while the hold timer is pending we preventDefault touchmoves inside the
+// slop radius (keeping the browser from starting a scroll), release the stream
+// the moment movement exceeds slop (a genuine scroll, with ~10 px of eaten
+// travel), and preventDefault everything once the drag is active. The long-
+// press context menu and text selection are suppressed for the same reason.
+//
 // DOM contract (data attributes, set by Board/Column/TaskCard):
 //   [data-board]                  the horizontal scroller
 //   [data-col-drop="<colId>"]     each column's card list
@@ -25,6 +35,7 @@ export default function useTouchDrag(ref, { cardId, title, index, colId, onDrop 
     if (!el) return;
 
     let timer = null;
+    let pending = false;
     let active = false;
     let ghost = null;
     let raf = null;
@@ -32,8 +43,24 @@ export default function useTouchDrag(ref, { cardId, title, index, colId, onDrop 
     let last = null; // {x, y}
     let target = null; // {colId, slot, listEl}
 
-    const preventScroll = (e) => {
-      if (active) e.preventDefault();
+    const onTouchMove = (e) => {
+      if (active) {
+        e.preventDefault(); // drag owns the gesture — no native scroll
+        return;
+      }
+      if (pending && start) {
+        const t = e.touches[0];
+        const dist = Math.hypot(t.clientX - start.x, t.clientY - start.y);
+        if (dist <= SLOP_PX) {
+          e.preventDefault(); // ambiguity window: don't let a scroll start yet
+        } else {
+          cleanup(); // real scroll — release the gesture to the browser
+        }
+      }
+    };
+
+    const onContextMenu = (e) => {
+      if (pending || active) e.preventDefault(); // no long-press menu mid-hold
     };
 
     const clearIndicators = () => {
@@ -45,10 +72,10 @@ export default function useTouchDrag(ref, { cardId, title, index, colId, onDrop 
     const cleanup = () => {
       clearTimeout(timer);
       timer = null;
+      pending = false;
       cancelAnimationFrame(raf);
       const board = document.querySelector('[data-board]');
       if (board) board.style.scrollSnapType = '';
-      document.removeEventListener('touchmove', preventScroll);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
@@ -63,13 +90,13 @@ export default function useTouchDrag(ref, { cardId, title, index, colId, onDrop 
     };
 
     const activate = () => {
+      pending = false;
       active = true;
       navigator.vibrate?.(12);
       el.style.opacity = '0.35';
       // Scroll-snap would fight the edge auto-scroll — suspend it for the drag.
       const board = document.querySelector('[data-board]');
       if (board) board.style.scrollSnapType = 'none';
-      document.addEventListener('touchmove', preventScroll, { passive: false });
       ghost = document.createElement('div');
       ghost.className = 'drag-ghost';
       ghost.textContent = title;
@@ -126,10 +153,7 @@ export default function useTouchDrag(ref, { cardId, title, index, colId, onDrop 
     const onMove = (e) => {
       last = { x: e.clientX, y: e.clientY };
       if (!active) {
-        if (
-          start &&
-          Math.hypot(e.clientX - start.x, e.clientY - start.y) > SLOP_PX
-        ) {
+        if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > SLOP_PX) {
           cleanup(); // finger is scrolling, not holding
         }
         return;
@@ -152,14 +176,21 @@ export default function useTouchDrag(ref, { cardId, title, index, colId, onDrop 
       if (e.target.closest('button, input, textarea, a')) return;
       start = { x: e.clientX, y: e.clientY, rect: el.getBoundingClientRect() };
       last = { x: e.clientX, y: e.clientY };
+      pending = true;
       timer = setTimeout(activate, HOLD_MS);
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onCancel);
     };
 
+    // The touchmove interceptor must be registered before the gesture begins
+    // (and non-passive) or preventDefault is ignored.
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('contextmenu', onContextMenu);
     el.addEventListener('pointerdown', onDown);
     return () => {
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('contextmenu', onContextMenu);
       el.removeEventListener('pointerdown', onDown);
       cleanup();
     };

@@ -5,13 +5,17 @@ import CheckCircle from './CheckCircle.jsx';
 import QuickAdd from './QuickAdd.jsx';
 import CategoryPicker from './CategoryPicker.jsx';
 import ReminderSheet from './ReminderSheet.jsx';
+import SubtaskRow from './SubtaskRow.jsx';
 import useTouchDrag from '../lib/useTouchDrag.js';
+import { dueInfo as dueInfoOf } from '../lib/dates.js';
 
 // One task. Collapsed: checkbox + title (+ progress/due/reminder chips) with a
-// category color stripe. Subtasks are always visible with their own checkboxes;
-// tapping the body expands to reveal the note, subtask adder and menu extras.
+// category color stripe. The subtask list folds behind a "n/m ▾" chip
+// (persisted per card); tapping the body expands the note + subtask adder.
 // Drag: HTML5 dnd on desktop, long-press (via useTouchDrag) on touch.
-export default function TaskCard({ card, index, columnCount, columns, onDropCard }) {
+// `sortMode` hides Move up/down when the column is auto-sorted (they'd be
+// no-ops against a display sort).
+export default function TaskCard({ card, index, columnCount, columns, onDropCard, sortMode = 'manual' }) {
   const { state, actions, undo } = useStore();
   const snack = useSnack();
   const rootRef = useRef(null);
@@ -42,19 +46,7 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
   const category = state.categories.find((c) => c.id === card.categoryId);
   const pendingReminders = (card.reminders || []).filter((r) => !r.fired).length;
 
-  // Due-date tone: overdue red, today amber, future neutral.
-  const dueInfo = (() => {
-    if (!card.dueDate) return null;
-    const today = new Date();
-    const stamp = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const label = new Date(`${card.dueDate}T12:00`).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-    });
-    if (card.dueDate < stamp) return { label, cls: 'bg-red-500/15 text-red-600' };
-    if (card.dueDate === stamp) return { label: 'Today', cls: 'bg-amber-500/20 text-amber-700' };
-    return { label, cls: 'bg-ink/5 text-ink/50' };
-  })();
+  const dueInfo = dueInfoOf(card.dueDate);
 
   const tryDone = () => {
     if (openSubs > 0) {
@@ -99,7 +91,7 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
         const dragId = e.dataTransfer.getData('text/card-id');
         if (dragId && dragId !== card.id) onDropCard(dragId, index);
       }}
-      className={`rounded-xl border border-ink/10 bg-surface shadow-sm transition-shadow ${
+      className={`select-none rounded-xl border border-ink/10 bg-surface shadow-sm transition-shadow ${
         shake ? 'animate-[cardshake_0.4s_ease]' : ''
       }`}
       style={{
@@ -134,8 +126,19 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
           )}
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink/45">
             {card.subtasks.length > 0 && (
-              <span className={openSubs === 0 ? 'text-emerald-600' : ''}>
-                {card.subtasks.length - openSubs}/{card.subtasks.length} subtasks
+              <span
+                role="button"
+                title={card.collapsed ? 'Show subtasks' : 'Hide subtasks'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  actions.updateCard(card.id, { collapsed: !card.collapsed });
+                }}
+                className={`rounded-full px-1.5 py-px font-medium ${
+                  openSubs === 0 ? 'bg-emerald-600/10 text-emerald-600' : 'bg-ink/5 text-ink/55'
+                }`}
+              >
+                {card.subtasks.length - openSubs}/{card.subtasks.length}{' '}
+                {card.collapsed ? '▸' : '▾'}
               </span>
             )}
             {dueInfo && (
@@ -232,24 +235,28 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
                 >
                   Rename
                 </MenuItem>
-                <MenuItem
-                  disabled={index === 0}
-                  onClick={() => {
-                    setMenu(false);
-                    actions.moveCard(card.id, card.columnId, index - 1);
-                  }}
-                >
-                  Move up
-                </MenuItem>
-                <MenuItem
-                  disabled={index >= columnCount - 1}
-                  onClick={() => {
-                    setMenu(false);
-                    actions.moveCard(card.id, card.columnId, index + 1);
-                  }}
-                >
-                  Move down
-                </MenuItem>
+                {sortMode === 'manual' && (
+                  <>
+                    <MenuItem
+                      disabled={index === 0}
+                      onClick={() => {
+                        setMenu(false);
+                        actions.moveCard(card.id, card.columnId, index - 1);
+                      }}
+                    >
+                      Move up
+                    </MenuItem>
+                    <MenuItem
+                      disabled={index >= columnCount - 1}
+                      onClick={() => {
+                        setMenu(false);
+                        actions.moveCard(card.id, card.columnId, index + 1);
+                      }}
+                    >
+                      Move down
+                    </MenuItem>
+                  </>
+                )}
                 {columns
                   .filter((c) => c.id !== card.columnId)
                   .map((c) => (
@@ -273,34 +280,11 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
         </div>
       </div>
 
-      {/* ── Subtasks (always visible) ─────────────────────────────────── */}
-      {visibleSubs.length > 0 && (
+      {/* ── Subtasks (foldable via the n/m chip) ──────────────────────── */}
+      {visibleSubs.length > 0 && !card.collapsed && (
         <ul className="space-y-0.5 px-3 pb-2 pl-[42px]">
           {visibleSubs.map((t) => (
-            <li key={t.id} className="group flex items-start gap-2">
-              <div className="pt-0.5">
-                <CheckCircle
-                  checked={t.done}
-                  size={18}
-                  onToggle={() => actions.toggleSubtask(card.id, t.id)}
-                />
-              </div>
-              <span
-                className={`min-w-0 flex-1 break-words pt-1 text-[13px] leading-snug ${
-                  t.done ? 'text-ink/35 line-through' : 'text-ink/75'
-                }`}
-              >
-                {t.text}
-              </span>
-              <button
-                type="button"
-                title="Remove subtask"
-                onClick={() => actions.removeSubtask(card.id, t.id)}
-                className="pt-1 text-ink/25 opacity-100 hover:text-accent sm:opacity-0 sm:group-hover:opacity-100"
-              >
-                ×
-              </button>
-            </li>
+            <SubtaskRow key={t.id} card={card} sub={t} />
           ))}
         </ul>
       )}
@@ -328,7 +312,14 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
         </div>
       )}
 
-      {remindersOpen && <ReminderSheet card={card} onClose={() => setRemindersOpen(false)} />}
+      {remindersOpen && (
+        <ReminderSheet
+          title={card.title}
+          reminders={card.reminders || []}
+          onSave={(reminders) => actions.updateCard(card.id, { reminders })}
+          onClose={() => setRemindersOpen(false)}
+        />
+      )}
     </div>
   );
 }

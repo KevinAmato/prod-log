@@ -13,6 +13,11 @@ const VIEWS = [
 export default function Header({ view, setView }) {
   const { state, actions, theme, toggleTheme } = useStore();
   const [menu, setMenu] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const { filterCategoryId, filterOverdue } = state.prefs;
+  const filterActive = !!filterCategoryId || filterOverdue;
+  const activeCat = state.categories.find((c) => c.id === filterCategoryId);
 
   const counts = {
     live: state.cards.filter((c) => c.status === 'live').length,
@@ -27,19 +32,87 @@ export default function Header({ view, setView }) {
           ProdLog<span className="text-accent">.</span>
         </h1>
 
-        {/* Hide-done-subtasks filter (board-level, spec §filter) */}
-        <button
-          type="button"
-          onClick={() => actions.setPref('hideDoneSubtasks', !state.prefs.hideDoneSubtasks)}
-          className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-            state.prefs.hideDoneSubtasks
-              ? 'border-accent/40 bg-accent/10 text-accent'
-              : 'border-ink/15 text-ink/50 hover:bg-ink/5'
-          }`}
-          title="Hide completed subtasks on the board"
-        >
-          {state.prefs.hideDoneSubtasks ? '✓ ' : ''}Hide done
-        </button>
+        {/* Board filter: by category color and/or overdue */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setFilterOpen((v) => !v)}
+            title="Filter the board"
+            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+              filterActive
+                ? 'border-accent/40 bg-accent/10 text-accent'
+                : 'border-ink/15 text-ink/50 hover:bg-ink/5'
+            }`}
+          >
+            {activeCat && (
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: activeCat.color }} />
+            )}
+            Filter{filterOverdue ? ' · overdue' : ''}
+          </button>
+          {filterOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setFilterOpen(false)} />
+              <div className="absolute right-0 top-8 z-40 w-56 rounded-xl border border-ink/10 bg-surface p-3 shadow-xl">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/40">
+                  Color
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {state.categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      title={cat.name}
+                      onClick={() =>
+                        actions.setPref(
+                          'filterCategoryId',
+                          filterCategoryId === cat.id ? null : cat.id,
+                        )
+                      }
+                      className="h-6 w-6 rounded-full"
+                      style={{
+                        background: cat.color,
+                        outline:
+                          filterCategoryId === cat.id ? `2px solid ${cat.color}` : 'none',
+                        outlineOffset: 2,
+                        opacity: filterCategoryId && filterCategoryId !== cat.id ? 0.35 : 1,
+                      }}
+                    />
+                  ))}
+                </div>
+                <label className="mt-3 flex items-center gap-2 text-sm text-ink/80">
+                  <input
+                    type="checkbox"
+                    checked={filterOverdue}
+                    onChange={(e) => actions.setPref('filterOverdue', e.target.checked)}
+                    className="h-4 w-4 accent-[#b5562e]"
+                  />
+                  Overdue only
+                </label>
+                <label className="mt-2 flex items-center gap-2 text-sm text-ink/80">
+                  <input
+                    type="checkbox"
+                    checked={state.prefs.hideDoneSubtasks}
+                    onChange={(e) => actions.setPref('hideDoneSubtasks', e.target.checked)}
+                    className="h-4 w-4 accent-[#b5562e]"
+                  />
+                  Hide done subtasks
+                </label>
+                {filterActive && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      actions.setPref('filterCategoryId', null);
+                      actions.setPref('filterOverdue', false);
+                    }}
+                    className="mt-3 w-full rounded-lg border border-ink/15 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/5"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
         <button
           type="button"

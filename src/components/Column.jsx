@@ -1,16 +1,39 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import TaskCard from './TaskCard.jsx';
 import QuickAdd from './QuickAdd.jsx';
 
-// One board column: rename inline, delete via menu (live cards move to the
-// first remaining column), quick-add pinned at the bottom. Cards can be
+const SORTS = [
+  ['manual', 'Manual (drag order)'],
+  ['due', 'Due date'],
+  ['az', 'A → Z'],
+  ['za', 'Z → A'],
+];
+
+// One board column: rename inline, sort + delete via menu (live cards move to
+// the first remaining column), quick-add pinned at the bottom. Cards can be
 // dropped anywhere in the column body (drops on a card insert at its slot).
+// Sort is a per-column DISPLAY order (persisted on the column); the underlying
+// manual order is untouched, so switching back to Manual restores it.
 export default function Column({ column, cards, columns, canDelete }) {
   const { actions } = useStore();
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const renameRef = useRef(null);
+
+  const sort = column.sort || 'manual';
+  const sorted = useMemo(() => {
+    if (sort === 'manual') return cards;
+    const arr = [...cards];
+    if (sort === 'due') {
+      arr.sort((a, b) => (a.dueDate || '9999-99-99').localeCompare(b.dueDate || '9999-99-99'));
+    } else if (sort === 'az') {
+      arr.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+    } else if (sort === 'za') {
+      arr.sort((a, b) => b.title.localeCompare(a.title, undefined, { sensitivity: 'base' }));
+    }
+    return arr;
+  }, [cards, sort]);
 
   useEffect(() => {
     if (renaming) renameRef.current?.select();
@@ -70,6 +93,15 @@ export default function Column({ column, cards, columns, canDelete }) {
           </button>
         )}
 
+        {sort !== 'manual' && (
+          <span
+            title="Sorted — drag order is paused"
+            className="shrink-0 rounded-full bg-accent/10 px-1.5 py-px text-[10px] font-medium text-accent"
+          >
+            {sort === 'due' ? 'due ↑' : sort === 'az' ? 'A→Z' : 'Z→A'}
+          </span>
+        )}
+
         <div className="relative shrink-0">
           <button
             type="button"
@@ -82,7 +114,27 @@ export default function Column({ column, cards, columns, canDelete }) {
           {menu && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
-              <div className="absolute right-0 top-7 z-40 w-44 overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+              <div className="absolute right-0 top-7 z-40 w-52 overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+                <p className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/40">
+                  Sort by
+                </p>
+                {SORTS.map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      actions.updateColumn(column.id, { sort: key });
+                      setMenu(false);
+                    }}
+                    className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-ink/5 ${
+                      sort === key ? 'font-semibold text-accent' : 'text-ink/80'
+                    }`}
+                  >
+                    {sort === key ? '✓ ' : ''}
+                    {label}
+                  </button>
+                ))}
+                <div className="my-1 h-px bg-ink/10" />
                 <button
                   type="button"
                   onClick={() => {
@@ -112,17 +164,18 @@ export default function Column({ column, cards, columns, canDelete }) {
         data-col-drop={column.id}
         className="min-h-[40px] flex-1 space-y-2 overflow-y-auto px-2 py-2"
       >
-        {cards.map((card, i) => (
+        {sorted.map((card, i) => (
           <TaskCard
             key={card.id}
             card={card}
             index={i}
-            columnCount={cards.length}
+            columnCount={sorted.length}
             columns={columns}
+            sortMode={sort}
             onDropCard={(dragId, slot) => actions.moveCard(dragId, column.id, slot)}
           />
         ))}
-        {cards.length === 0 && (
+        {sorted.length === 0 && (
           <p className="px-2 py-3 text-center text-xs text-ink/30">No tasks yet</p>
         )}
       </div>

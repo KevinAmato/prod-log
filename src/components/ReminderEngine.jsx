@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import { useSnack } from './Snackbar.jsx';
-import { fireNotification, mirrorReminders } from '../lib/reminders.js';
+import { fireNotification, mirrorReminders, pendingReminders } from '../lib/reminders.js';
 
 // Headless: fires due reminders while the app is open (checked every 20 s and
 // on tab focus) and keeps the IndexedDB mirror fresh so the service worker can
@@ -18,16 +18,13 @@ export default function ReminderEngine() {
   useEffect(() => {
     const check = () => {
       const now = Date.now();
-      for (const card of state.cards) {
-        if (card.status !== 'live') continue;
-        for (const r of card.reminders || []) {
-          if (r.fired || new Date(r.at).getTime() > now) continue;
-          actions.markReminderFired(card.id, r.id);
-          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            fireNotification(card.title, '⏰ Reminder', r.id);
-          } else {
-            snack(`⏰ ${card.title}`);
-          }
+      for (const r of pendingReminders(state.cards)) {
+        if (new Date(r.at).getTime() > now) continue;
+        actions.markReminderFired(r.cardId, r.id);
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          fireNotification(r.title, r.body, r.id);
+        } else {
+          snack(`${r.body} — ${r.title}`);
         }
       }
     };

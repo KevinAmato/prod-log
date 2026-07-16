@@ -109,6 +109,14 @@ export function StoreProvider({ children }) {
         }));
       },
 
+      // Generic column patch — used for the per-column display sort.
+      updateColumn(id, patch) {
+        setState((s) => ({
+          ...s,
+          columns: s.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        }));
+      },
+
       // Live cards in a removed column move to the first remaining column so
       // nothing silently disappears. The UI blocks removing the last column.
       removeColumn(id) {
@@ -242,6 +250,16 @@ export function StoreProvider({ children }) {
         );
       },
 
+      // Patch one subtask (due date, reminders, text).
+      updateSubtask(cardId, subId, patch) {
+        setState((s) =>
+          patchCard(s, cardId, (c) => ({
+            ...c,
+            subtasks: c.subtasks.map((t) => (t.id === subId ? { ...t, ...patch } : t)),
+          })),
+        );
+      },
+
       removeSubtask(cardId, subId) {
         setState((s) =>
           patchCard(s, cardId, (c) => ({
@@ -252,13 +270,14 @@ export function StoreProvider({ children }) {
       },
 
       // Mark a reminder as fired (called by the reminder engine, not the user).
+      // Searches both the card's own reminders and every subtask's.
       markReminderFired(cardId, remId) {
+        const fire = (rs) => (rs || []).map((r) => (r.id === remId ? { ...r, fired: true } : r));
         setState((s) =>
           patchCard(s, cardId, (c) => ({
             ...c,
-            reminders: (c.reminders || []).map((r) =>
-              r.id === remId ? { ...r, fired: true } : r,
-            ),
+            reminders: fire(c.reminders),
+            subtasks: (c.subtasks || []).map((t) => ({ ...t, reminders: fire(t.reminders) })),
           })),
         );
       },

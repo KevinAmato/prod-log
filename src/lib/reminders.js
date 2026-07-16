@@ -39,7 +39,8 @@ export async function enableBackgroundChecks() {
 }
 
 // Show a notification, preferring the SW (required on Android; also survives
-// the tab being backgrounded). `tag` dedupes app-fired vs SW-fired copies.
+// the tab being backgrounded). `tag` dedupes app-fired vs SW-fired copies of
+// the same reminder.
 export async function fireNotification(title, body, tag) {
   try {
     const reg = await navigator.serviceWorker.getRegistration();
@@ -67,20 +68,35 @@ const openDB = () =>
     req.onerror = () => reject(req.error);
   });
 
-// Rewrite the mirror with every PENDING reminder on live cards. The SW deletes
-// entries as it notifies them, so anything it fires while the app is closed
-// won't re-fire on the next sync.
+// Every pending reminder on live cards AND their subtasks, flattened for the
+// mirror and the in-app checker: { id, at, title, body }.
+export function pendingReminders(cards) {
+  const out = [];
+  for (const c of cards) {
+    if (c.status !== 'live') continue;
+    for (const r of c.reminders || []) {
+      if (!r.fired) out.push({ id: r.id, at: r.at, title: c.title, body: '⏰ Reminder', cardId: c.id });
+    }
+    for (const t of c.subtasks || []) {
+      for (const r of t.reminders || []) {
+        if (!r.fired) out.push({ id: r.id, at: r.at, title: c.title, body: `⏰ ${t.text}`, cardId: c.id });
+      }
+    }
+  }
+  return out;
+}
+
+// Rewrite the mirror with every PENDING reminder. The SW deletes entries as it
+// notifies them, so anything it fires while the app is closed won't re-fire on
+// the next sync.
 export async function mirrorReminders(cards) {
   try {
     const db = await openDB();
     const tx = db.transaction('reminders', 'readwrite');
     const store = tx.objectStore('reminders');
     store.clear();
-    for (const c of cards) {
-      if (c.status !== 'live') continue;
-      for (const r of c.reminders || []) {
-        if (!r.fired) store.put({ id: r.id, at: r.at, title: c.title });
-      }
+    for (const r of pendingReminders(cards)) {
+      store.put({ id: r.id, at: r.at, title: r.title, body: r.body });
     }
     await new Promise((res, rej) => {
       tx.oncomplete = res;

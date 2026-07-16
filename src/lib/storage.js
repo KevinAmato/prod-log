@@ -26,24 +26,28 @@ export const emptyState = () => ({
   // columnId). status: 'live' | 'done' | 'deleted' — done/deleted cards stay in
   // the array (they power the Done/Deleted boards) until destroyed forever.
   // Card: { id, columnId, title, note, status, createdAt, doneAt, deletedAt,
-  //         dueDate: 'YYYY-MM-DD'|null, categoryId: string|null,
+  //         dueDate: 'YYYY-MM-DD'|null, categoryId: string|null, collapsed,
   //         reminders: [{ id, at: 'YYYY-MM-DDTHH:mm' local, fired }],
-  //         subtasks: [{ id, text, done }] }
+  //         subtasks: [{ id, text, done, dueDate, reminders }] }
+  // Columns also carry a per-column display sort: 'manual'|'due'|'az'|'za'.
   cards: [],
   categories: DEFAULT_CATEGORIES,
   prefs: {
     hideDoneSubtasks: false, // board-level filter
+    filterCategoryId: null, // board-level: only show this color (null = all)
+    filterOverdue: false, // board-level: only show overdue cards
   },
 });
 
-// Older blobs predate dueDate/reminders/categoryId — default them in.
+// Older blobs predate dueDate/reminders/categoryId/collapsed — default them in.
 const normalizeCard = (c) => ({
   note: '',
   dueDate: null,
   categoryId: null,
+  collapsed: false,
   reminders: [],
-  subtasks: [],
   ...c,
+  subtasks: (c.subtasks || []).map((t) => ({ dueDate: null, reminders: [], ...t })),
 });
 
 export function loadState() {

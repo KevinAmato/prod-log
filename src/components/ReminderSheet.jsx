@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useStore } from '../store/StoreContext.jsx';
 import { newId } from '../lib/storage.js';
 import {
   ensureNotifyPermission,
@@ -8,12 +7,12 @@ import {
   toLocalInput,
 } from '../lib/reminders.js';
 
-// Bottom sheet (mobile) / centered modal (desktop) for a card's reminders.
-// One or more datetime rows; adding the first reminder requests notification
-// permission and registers background checks.
-export default function ReminderSheet({ card, onClose }) {
-  const { actions } = useStore();
-  const [rows, setRows] = useState(card.reminders || []);
+// Bottom sheet (mobile) / centered modal (desktop) for reminders — works for a
+// card OR a subtask: caller passes the current list and receives the edited
+// list via onSave. Adding the first reminder requests notification permission
+// and registers background checks.
+export default function ReminderSheet({ title, reminders, onSave, onClose }) {
+  const [rows, setRows] = useState(reminders || []);
   const [perm, setPerm] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
   );
@@ -28,7 +27,7 @@ export default function ReminderSheet({ card, onClose }) {
   };
 
   const save = () => {
-    actions.updateCard(card.id, { reminders: rows.filter((r) => r.at) });
+    onSave(rows.filter((r) => r.at));
     onClose();
   };
 
@@ -40,7 +39,7 @@ export default function ReminderSheet({ card, onClose }) {
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
       >
         <h3 className="text-sm font-semibold">Reminders</h3>
-        <p className="mt-0.5 line-clamp-1 text-xs text-ink/50">{card.title}</p>
+        <p className="mt-0.5 line-clamp-1 text-xs text-ink/50">{title}</p>
 
         {perm === 'denied' && (
           <p className="mt-2 rounded-lg bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-800">

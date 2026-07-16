@@ -3,7 +3,7 @@
 // Also: reminder notifications while the app is closed, via Periodic Background
 // Sync reading the IndexedDB mirror the app maintains (SWs can't read
 // localStorage — see src/lib/reminders.js).
-const CACHE = 'prodlog-v2';
+const CACHE = 'prodlog-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -56,7 +56,7 @@ async function checkReminders() {
   const due = all.filter((r) => new Date(r.at).getTime() <= now);
   for (const r of due) {
     await self.registration.showNotification(r.title, {
-      body: '⏰ Reminder',
+      body: r.body || '⏰ Reminder', // subtask reminders carry the subtask text
       tag: r.id, // dedupes with an app-fired copy of the same reminder
       icon: 'icon-192.png',
       badge: 'icon-192.png',
