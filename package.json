@@ -1,17 +1,15 @@
 {
-  "name": "diligence",
+  "name": "prodlog",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
-  "description": "Diligence — an audit trail for product judgment. A single-user product-decision funnel (BYOK, local-first, zero-cost).",
+  "description": "ProdLog — a mobile-first personal task board. Capture, break down, and check off product work in seconds (local-first, zero-cost).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.104.1",
-    "@xyflow/react": "^12.11.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

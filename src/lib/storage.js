@@ -1,89 +1,40 @@
 // Single-key, single-blob localStorage persistence. One JSON object under one
 // key keeps writes atomic and the whole data model trivially exportable.
 //
-// NOTE: localStorage does NOT work inside the Claude.ai artifact sandbox, but
-// works perfectly on a real deployed site or local dev server — so run this in
-// Cursor / `npm run dev` / the live deploy, not in an artifact.
+// NOTE: the key is new (prodlog_board_v1) — the old Diligence blob, if present
+// in this browser, is left untouched under its own key.
 
-const STORAGE_KEY = 'diligence_state_v1';
+const STORAGE_KEY = 'prodlog_board_v1';
 
 export const emptyState = () => ({
-  profile: {
-    pmType: '',
-    archetype: 'b2b-saas', // drives gate overlays — see config/gates.js
-    productName: '',
-    productLines: [],
-    setupComplete: false,
-  },
-  decisions: [],
-  settings: {
-    // Multi-provider BYOK. Keys live only in this browser. One key per provider
-    // so switching providers doesn't lose the others.
-    provider: 'anthropic', // 'anthropic' | 'openai' | 'gemini'
-    model: 'claude-opus-4-8',
-    keys: { anthropic: '', openai: '', gemini: '' },
-  },
-  // Mapping/Roadmap canvas. `elements` holds every canvas item:
-  //  - initiative: { id, type:'initiative', decisionId, x, y, style, comment }
-  //      (content read live from `decisions`; presence here == "placed")
-  //  - shape:      { id, type:'shape', shape, x, y, width, height, text, style, comment }
-  //  - text:       { id, type:'text', x, y, width, text, style, comment }
-  // Edges: { id, source, target, comment }. Layout only — never duplicates
-  // initiative content.
-  map: {
-    elements: [],
-    edges: [],
+  // Column order = array order. Cards reference columns by id so renames are free.
+  columns: [
+    { id: 'col-short', name: 'Short term' },
+    { id: 'col-long', name: 'Long term' },
+  ],
+  // Card order within a column = order of appearance in this array (filtered by
+  // columnId). status: 'live' | 'done' | 'deleted' — done/deleted cards stay in
+  // the array (they power the Done/Deleted boards) until destroyed forever.
+  // Card: { id, columnId, title, note, status, createdAt, doneAt, deletedAt,
+  //         subtasks: [{ id, text, done }] }
+  cards: [],
+  prefs: {
+    hideDoneSubtasks: false, // board-level filter
   },
 });
-
-// Upgrades the legacy single-key settings (`apiKey`) to the multi-provider shape.
-export function normalizeSettings(raw, base) {
-  const s = { ...base, ...(raw || {}) };
-  s.keys = { ...base.keys, ...(raw?.keys || {}) };
-  if (raw?.apiKey && !s.keys.anthropic) s.keys.anthropic = raw.apiKey; // migrate
-  if (!s.provider) s.provider = 'anthropic';
-  delete s.apiKey;
-  return s;
-}
-
-// Tolerates the legacy `{ nodes: {decisionId:{x,y}}, edges }` shape and upgrades
-// it to the unified `elements` model.
-export function normalizeMap(m) {
-  if (!m || typeof m !== 'object') return { elements: [], edges: [] };
-  const edges = Array.isArray(m.edges) ? m.edges : [];
-  if (Array.isArray(m.elements)) return { elements: m.elements, edges };
-  const elements = [];
-  if (m.nodes && typeof m.nodes === 'object') {
-    for (const [decisionId, pos] of Object.entries(m.nodes)) {
-      elements.push({
-        id: decisionId,
-        type: 'initiative',
-        decisionId,
-        x: pos.x,
-        y: pos.y,
-        style: {},
-        comment: '',
-      });
-    }
-  }
-  return { elements, edges };
-}
 
 export function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
-    // Shallow-merge against the empty shape so older saves missing newer keys
-    // (e.g. settings) still load cleanly.
     const base = emptyState();
+    if (!Array.isArray(parsed.columns) || !Array.isArray(parsed.cards)) return base;
     return {
       ...base,
       ...parsed,
-      profile: { ...base.profile, ...(parsed.profile || {}) },
-      settings: normalizeSettings(parsed.settings, base.settings),
-      decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
-      map: normalizeMap(parsed.map),
+      columns: parsed.columns.length ? parsed.columns : base.columns,
+      prefs: { ...base.prefs, ...(parsed.prefs || {}) },
     };
   } catch (err) {
     console.error('[storage] Failed to load state, starting fresh:', err);
@@ -91,9 +42,7 @@ export function loadState() {
   }
 }
 
-// Returns true on success. localStorage is capped (~5 MB/origin), so a backlog
-// stuffed with long transcripts can hit QuotaExceededError — callers surface a
-// warning so the user can export + prune (MVP feedback §3.3).
+// Returns true on success (localStorage is capped ~5 MB/origin).
 export function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -104,25 +53,23 @@ export function saveState(state) {
   }
 }
 
-// Export / import — the cheap insurance against a cleared browser wiping the
-// whole decision history (implementation plan §8 risk).
+// Export / import — the cheap insurance against a cleared browser, and the way
+// a board moves between devices (localStorage is per-device).
 export function exportStateBlob(state) {
   return JSON.stringify(state, null, 2);
 }
 
 export function parseImportedBlob(text) {
   const parsed = JSON.parse(text);
-  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.decisions)) {
-    throw new Error('That file does not look like a Diligence export.');
+  if (!parsed || !Array.isArray(parsed.columns) || !Array.isArray(parsed.cards)) {
+    throw new Error('That file does not look like a ProdLog export.');
   }
   const base = emptyState();
   return {
     ...base,
     ...parsed,
-    profile: { ...base.profile, ...(parsed.profile || {}) },
-    settings: normalizeSettings(parsed.settings, base.settings),
-    decisions: parsed.decisions,
-    map: normalizeMap(parsed.map),
+    columns: parsed.columns.length ? parsed.columns : base.columns,
+    prefs: { ...base.prefs, ...(parsed.prefs || {}) },
   };
 }
 

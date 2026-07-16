@@ -7,7 +7,6 @@
   --paper: 246 244 239; /* #f6f4ef */
   --accent: 181 86 46; /* #b5562e */
   --surface: 255 255 255; /* card / input surfaces */
-  --canvas-dot: #cbc6ba;
 }
 
 .dark {
@@ -15,7 +14,6 @@
   --paper: 24 22 20;
   --accent: 209 110 74;
   --surface: 42 39 37;
-  --canvas-dot: #3a3631;
 }
 
 html,
@@ -26,62 +24,23 @@ body,
 
 body {
   @apply bg-paper text-ink antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none; /* no pull-to-refresh eating a swipe on mobile */
 }
 
-/* ── Mapping canvas (React Flow) overrides ─────────────────────────────── */
-
-/* Connection handles: thin bars spanning each full side, revealed on hover, so
-   a connection can begin from anywhere along any edge (top/right/bottom/left). */
-.react-flow__handle.diligence-handle {
-  background: #9a958c;
-  border: none;
-  border-radius: 0;
-  min-width: 0;
-  min-height: 0;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-.react-flow__node:hover .react-flow__handle.diligence-handle,
-.react-flow__node.selected .react-flow__handle.diligence-handle {
-  opacity: 0.4;
-}
-.react-flow__handle-top.diligence-handle,
-.react-flow__handle-bottom.diligence-handle {
-  left: 0;
-  transform: none;
-  width: 100%;
-  height: 7px;
-}
-.react-flow__handle-top.diligence-handle {
-  top: 0;
-}
-.react-flow__handle-bottom.diligence-handle {
-  top: auto;
-  bottom: 0;
-}
-.react-flow__handle-left.diligence-handle,
-.react-flow__handle-right.diligence-handle {
-  top: 0;
-  transform: none;
-  height: 100%;
-  width: 7px;
-}
-.react-flow__handle-left.diligence-handle {
-  left: 0;
-}
-.react-flow__handle-right.diligence-handle {
-  left: auto;
-  right: 0;
-}
-
-/* Cursor: a normal arrow by default; the grabbing hand only appears while
-   actively panning (which is bound to the middle/scroll button). !important is
-   needed because React Flow's own pane-cursor CSS loads after ours. */
-.react-flow__pane,
-.react-flow__pane.draggable,
-.react-flow__pane.selection {
-  cursor: default !important;
-}
-.react-flow__pane.dragging {
-  cursor: grabbing !important;
+/* Blocked "mark done" feedback — the card wiggles to say "subtasks first". */
+@keyframes cardshake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
 }

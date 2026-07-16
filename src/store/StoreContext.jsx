@@ -13,7 +13,6 @@ import {
   newId,
   parseImportedBlob,
 } from '../lib/storage.js';
-import { buildFunnel, decisionGateAt } from '../config/gates.js';
 
 const StoreContext = createContext(null);
 
@@ -22,6 +21,7 @@ export function StoreProvider({ children }) {
 
   // History-aware state for undo/redo. Each committed change pushes the prior
   // state onto `past` and clears `future`; undo/redo move between the stacks.
+  // This also powers the snackbar's "Undo" after done/delete.
   const [hist, setHist] = useState(() => ({ past: [], present: loadState(), future: [] }));
   const state = hist.present;
 
@@ -71,9 +71,9 @@ export function StoreProvider({ children }) {
   }, [theme]);
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), []);
 
-  // Persist the present blob on every change. One key, atomic write. If the write
-  // fails (typically the ~5 MB localStorage quota), flag it so the UI can prompt
-  // an export + prune — the data in memory is still intact for this session.
+  // Persist the present blob on every change. One key, atomic write. If the
+  // write fails (~5 MB localStorage quota), flag it so the UI can prompt an
+  // export — the data in memory is still intact for this session.
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
@@ -84,294 +84,176 @@ export function StoreProvider({ children }) {
   }, [state]);
 
   const actions = useMemo(() => {
-    const touch = (decisions, id) =>
-      decisions.map((d) =>
-        d.id === id ? { ...d, updatedAt: new Date().toISOString() } : d,
-      );
+    const patchCard = (s, id, fn) => ({
+      ...s,
+      cards: s.cards.map((c) => (c.id === id ? fn(c) : c)),
+    });
 
     return {
-      // ── Profile / onboarding ──────────────────────────────────────────
-      saveProfile(profile) {
+      // ── Columns ───────────────────────────────────────────────────────
+      addColumn(name) {
+        const id = newId();
         setState((s) => ({
           ...s,
-          profile: { ...s.profile, ...profile, setupComplete: true },
+          columns: [...s.columns, { id, name: name.trim() || 'New column' }],
         }));
-      },
-
-      // ── Settings (API key + model) ────────────────────────────────────
-      saveSettings(settings) {
-        setState((s) => ({ ...s, settings: { ...s.settings, ...settings } }));
-      },
-
-      // ── Decisions ─────────────────────────────────────────────────────
-      createDecision({ title, type, productLines }) {
-        const id = newId();
-        const now = new Date().toISOString();
-        setState((s) => {
-          // Snapshot the funnel composed from this decision's type + the PM's
-          // archetype. Frozen for the decision's life — audit-trail integrity.
-          const gates = buildFunnel({
-            archetype: s.profile.archetype,
-            decisionType: type,
-          });
-          const decision = {
-            id,
-            title: title.trim(),
-            type,
-            productLines: Array.isArray(productLines) ? productLines : [],
-            status: 'active',
-            currentGateOrder: 1,
-            createdAt: now,
-            updatedAt: now,
-            gates,
-            evidence: [],
-          };
-          return { ...s, decisions: [decision, ...s.decisions] };
-        });
         return id;
       },
 
-      updateDecision(id, patch) {
+      renameColumn(id, name) {
+        const clean = name.trim();
+        if (!clean) return;
         setState((s) => ({
           ...s,
-          decisions: touch(
-            s.decisions.map((d) => (d.id === id ? { ...d, ...patch } : d)),
-            id,
-          ),
+          columns: s.columns.map((c) => (c.id === id ? { ...c, name: clean } : c)),
         }));
       },
 
-      deleteDecision(id) {
+      // Live cards in a removed column move to the first remaining column so
+      // nothing silently disappears. The UI blocks removing the last column.
+      removeColumn(id) {
         setState((s) => {
-          // Also remove its canvas element + any edges touching it.
-          const elements = s.map.elements.filter((e) => e.id !== id);
-          const edges = s.map.edges.filter((e) => e.source !== id && e.target !== id);
+          if (s.columns.length <= 1) return s;
+          const columns = s.columns.filter((c) => c.id !== id);
+          const fallback = columns[0].id;
           return {
             ...s,
-            decisions: s.decisions.filter((d) => d.id !== id),
-            map: { ...s.map, elements, edges },
+            columns,
+            cards: s.cards.map((c) =>
+              c.columnId === id && c.status === 'live' ? { ...c, columnId: fallback } : c,
+            ),
           };
         });
       },
 
-      // ── Mapping / Roadmap canvas (layout only) ────────────────────────
-      // Place a backlog initiative on the canvas (id === decisionId).
-      placeInitiative(decisionId, position) {
+      // ── Cards ─────────────────────────────────────────────────────────
+      // Bulk-friendly: one commit per batch so a pasted list is a single undo.
+      addCards(columnId, titles) {
+        const clean = titles.map((t) => t.trim()).filter(Boolean);
+        if (!clean.length) return;
+        const now = new Date().toISOString();
+        setState((s) => ({
+          ...s,
+          cards: [
+            ...s.cards,
+            ...clean.map((title) => ({
+              id: newId(),
+              columnId,
+              title,
+              note: '',
+              status: 'live',
+              createdAt: now,
+              doneAt: null,
+              deletedAt: null,
+              subtasks: [],
+            })),
+          ],
+        }));
+      },
+
+      updateCard(id, patch) {
+        setState((s) => patchCard(s, id, (c) => ({ ...c, ...patch })));
+      },
+
+      // Guarded here too: a card is only done when every subtask is done.
+      markDone(id) {
         setState((s) => {
-          if (s.map.elements.some((e) => e.id === decisionId)) return s;
-          const el = {
-            id: decisionId,
-            type: 'initiative',
-            decisionId,
-            x: position.x,
-            y: position.y,
-            width: 224,
-            height: 132,
-            style: {},
-            comment: '',
-          };
-          return { ...s, map: { ...s.map, elements: [...s.map.elements, el] } };
+          const card = s.cards.find((c) => c.id === id);
+          if (!card || card.subtasks.some((t) => !t.done)) return s;
+          return patchCard(s, id, (c) => ({
+            ...c,
+            status: 'done',
+            doneAt: new Date().toISOString(),
+          }));
         });
       },
 
-      // Add a shape or text element. Caller supplies a unique id (newId()).
-      addElement(element) {
-        setState((s) => ({
-          ...s,
-          map: { ...s.map, elements: [...s.map.elements, element] },
-        }));
+      deleteCard(id) {
+        setState((s) =>
+          patchCard(s, id, (c) => ({
+            ...c,
+            status: 'deleted',
+            deletedAt: new Date().toISOString(),
+          })),
+        );
       },
 
-      // Add many elements (+ optional edges) in one commit — used by paste so a
-      // single Ctrl+Z undoes the whole paste.
-      addElements(elements, edges = []) {
-        if (!elements.length) return;
-        setState((s) => ({
-          ...s,
-          map: {
-            ...s.map,
-            elements: [...s.map.elements, ...elements],
-            edges: [...s.map.edges, ...edges],
-          },
-        }));
-      },
-
-      moveElement(id, position) {
-        setState((s) => ({
-          ...s,
-          map: {
-            ...s.map,
-            elements: s.map.elements.map((e) =>
-              e.id === id ? { ...e, x: position.x, y: position.y } : e,
-            ),
-          },
-        }));
-      },
-
-      // Nudge several elements by a delta in one commit (arrow-key movement).
-      nudgeElements(ids, dx, dy) {
-        const set = new Set(ids);
-        setState((s) => ({
-          ...s,
-          map: {
-            ...s.map,
-            elements: s.map.elements.map((e) =>
-              set.has(e.id) ? { ...e, x: e.x + dx, y: e.y + dy } : e,
-            ),
-          },
-        }));
-      },
-
-      updateElement(id, patch) {
-        setState((s) => ({
-          ...s,
-          map: {
-            ...s.map,
-            elements: s.map.elements.map((e) =>
-              e.id === id
-                ? { ...e, ...patch, style: patch.style ? { ...e.style, ...patch.style } : e.style }
-                : e,
-            ),
-          },
-        }));
-      },
-
-      removeElements(ids) {
-        const set = new Set(ids);
-        setState((s) => ({
-          ...s,
-          map: {
-            ...s.map,
-            elements: s.map.elements.filter((e) => !set.has(e.id)),
-            edges: s.map.edges.filter((e) => !set.has(e.source) && !set.has(e.target)),
-          },
-        }));
-      },
-
-      // Z-order: stacking follows array order (later in `elements` = on top), so
-      // reordering restacks. Frames are always pinned behind at render time (see
-      // the MappingView reconcile), so these are safe on any selection.
-      bringToFront(ids) {
-        const set = new Set(ids);
+      // From Done or Deleted back to the live board. Falls back to the first
+      // column if the card's column was removed in the meantime.
+      restoreCard(id) {
         setState((s) => {
-          if (!ids.length) return s;
-          const sel = s.map.elements.filter((e) => set.has(e.id));
-          const rest = s.map.elements.filter((e) => !set.has(e.id));
-          return { ...s, map: { ...s.map, elements: [...rest, ...sel] } };
+          const exists = (colId) => s.columns.some((c) => c.id === colId);
+          return patchCard(s, id, (c) => ({
+            ...c,
+            status: 'live',
+            doneAt: null,
+            deletedAt: null,
+            columnId: exists(c.columnId) ? c.columnId : s.columns[0].id,
+          }));
         });
       },
 
-      sendToBack(ids) {
-        const set = new Set(ids);
+      // Permanent removal — only reachable from the Deleted board, behind a
+      // confirm in the UI.
+      destroyCard(id) {
+        setState((s) => ({ ...s, cards: s.cards.filter((c) => c.id !== id) }));
+      },
+
+      // Reposition a card: `index` is the target slot among the LIVE cards of
+      // `columnId` (Infinity/oversized = end). Used by drag-drop and the
+      // move up/down/to-column menu.
+      moveCard(id, columnId, index) {
         setState((s) => {
-          if (!ids.length) return s;
-          const sel = s.map.elements.filter((e) => set.has(e.id));
-          const rest = s.map.elements.filter((e) => !set.has(e.id));
-          return { ...s, map: { ...s.map, elements: [...sel, ...rest] } };
+          const card = s.cards.find((c) => c.id === id);
+          if (!card) return s;
+          const rest = s.cards.filter((c) => c.id !== id);
+          const colCards = rest.filter((c) => c.columnId === columnId && c.status === 'live');
+          const anchor = colCards[index];
+          let gi;
+          if (anchor) {
+            gi = rest.indexOf(anchor);
+          } else {
+            const last = colCards[colCards.length - 1];
+            gi = last ? rest.indexOf(last) + 1 : rest.length;
+          }
+          const moved = { ...card, columnId };
+          return { ...s, cards: [...rest.slice(0, gi), moved, ...rest.slice(gi)] };
         });
       },
 
-      addMapEdge({ source, target }) {
-        if (!source || !target || source === target) return;
-        setState((s) => {
-          const id = `e-${source}-${target}`;
-          if (s.map.edges.some((e) => e.id === id)) return s;
-          return {
-            ...s,
-            map: {
-              ...s.map,
-              edges: [
-                ...s.map.edges,
-                {
-                  id,
-                  source,
-                  target,
-                  comment: '',
-                  arrow: 'end',
-                  color: '#b5562e',
-                  width: 1.5,
-                  lineStyle: 'solid',
-                },
-              ],
-            },
-          };
-        });
+      // ── Subtasks ──────────────────────────────────────────────────────
+      addSubtasks(cardId, texts) {
+        const clean = texts.map((t) => t.trim()).filter(Boolean);
+        if (!clean.length) return;
+        setState((s) =>
+          patchCard(s, cardId, (c) => ({
+            ...c,
+            subtasks: [...c.subtasks, ...clean.map((text) => ({ id: newId(), text, done: false }))],
+          })),
+        );
       },
 
-      updateEdge(id, patch) {
-        setState((s) => ({
-          ...s,
-          map: {
-            ...s.map,
-            edges: s.map.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)),
-          },
-        }));
+      toggleSubtask(cardId, subId) {
+        setState((s) =>
+          patchCard(s, cardId, (c) => ({
+            ...c,
+            subtasks: c.subtasks.map((t) => (t.id === subId ? { ...t, done: !t.done } : t)),
+          })),
+        );
       },
 
-      removeMapEdges(ids) {
-        const set = new Set(ids);
-        setState((s) => ({
-          ...s,
-          map: { ...s.map, edges: s.map.edges.filter((e) => !set.has(e.id)) },
-        }));
+      removeSubtask(cardId, subId) {
+        setState((s) =>
+          patchCard(s, cardId, (c) => ({
+            ...c,
+            subtasks: c.subtasks.filter((t) => t.id !== subId),
+          })),
+        );
       },
 
-      // Record evidence (provided OR skipped) for the decision's CURRENT gate,
-      // then advance. Advancement is a UI action, never an AI one.
-      // `sections` is an array of { key, label, value } captured from the gate's
-      // input sections (one entry per labelled field).
-      recordEvidence(id, { questionAsked, sections, status, skipReason }) {
-        setState((s) => ({
-          ...s,
-          decisions: touch(
-            s.decisions.map((d) => {
-              if (d.id !== id) return d;
-              const gate = decisionGateAt(d, d.currentGateOrder);
-              const entry = {
-                gateOrder: d.currentGateOrder,
-                gateName: gate ? gate.name : `Gate ${d.currentGateOrder}`,
-                questionAsked: questionAsked || (gate ? gate.coreQuestion : ''),
-                sections: status === 'provided' ? sections || [] : [],
-                status,
-                skipReason: status === 'skipped' ? skipReason || '' : null,
-                timestamp: new Date().toISOString(),
-              };
-              return {
-                ...d,
-                evidence: [...d.evidence, entry],
-                currentGateOrder: d.currentGateOrder + 1,
-              };
-            }),
-            id,
-          ),
-        }));
-      },
-
-      // Edit a previously-saved gate in place. Does NOT move the funnel pointer.
-      editEvidence(id, gateOrder, { status, sections, skipReason }) {
-        setState((s) => ({
-          ...s,
-          decisions: touch(
-            s.decisions.map((d) => {
-              if (d.id !== id) return d;
-              return {
-                ...d,
-                evidence: d.evidence.map((e) =>
-                  e.gateOrder === gateOrder
-                    ? {
-                        ...e,
-                        status,
-                        sections: status === 'provided' ? sections || [] : [],
-                        skipReason: status === 'skipped' ? skipReason || '' : null,
-                        editedAt: new Date().toISOString(),
-                      }
-                    : e,
-                ),
-              };
-            }),
-            id,
-          ),
-        }));
+      // ── Prefs ─────────────────────────────────────────────────────────
+      setPref(key, value) {
+        setState((s) => ({ ...s, prefs: { ...s.prefs, [key]: value } }));
       },
 
       // ── Backup / restore ──────────────────────────────────────────────
