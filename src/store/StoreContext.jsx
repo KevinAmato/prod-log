@@ -251,6 +251,28 @@ export function StoreProvider({ children }) {
         );
       },
 
+      // Mark a reminder as fired (called by the reminder engine, not the user).
+      markReminderFired(cardId, remId) {
+        setState((s) =>
+          patchCard(s, cardId, (c) => ({
+            ...c,
+            reminders: (c.reminders || []).map((r) =>
+              r.id === remId ? { ...r, fired: true } : r,
+            ),
+          })),
+        );
+      },
+
+      // ── Categories (color codes) ──────────────────────────────────────
+      renameCategory(id, name) {
+        const clean = name.trim();
+        if (!clean) return;
+        setState((s) => ({
+          ...s,
+          categories: s.categories.map((c) => (c.id === id ? { ...c, name: clean } : c)),
+        }));
+      },
+
       // ── Prefs ─────────────────────────────────────────────────────────
       setPref(key, value) {
         setState((s) => ({ ...s, prefs: { ...s.prefs, [key]: value } }));

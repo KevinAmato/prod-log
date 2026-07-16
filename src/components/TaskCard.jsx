@@ -3,16 +3,23 @@ import { useStore } from '../store/StoreContext.jsx';
 import { useSnack } from './Snackbar.jsx';
 import CheckCircle from './CheckCircle.jsx';
 import QuickAdd from './QuickAdd.jsx';
+import CategoryPicker from './CategoryPicker.jsx';
+import ReminderSheet from './ReminderSheet.jsx';
+import useTouchDrag from '../lib/useTouchDrag.js';
 
-// One task. Collapsed: checkbox + title (+ subtask progress). Subtasks are
-// always visible with their own checkboxes; tapping the body expands to reveal
-// the note, the subtask adder and move controls.
+// One task. Collapsed: checkbox + title (+ progress/due/reminder chips) with a
+// category color stripe. Subtasks are always visible with their own checkboxes;
+// tapping the body expands to reveal the note, subtask adder and menu extras.
+// Drag: HTML5 dnd on desktop, long-press (via useTouchDrag) on touch.
 export default function TaskCard({ card, index, columnCount, columns, onDropCard }) {
   const { state, actions, undo } = useStore();
   const snack = useSnack();
+  const rootRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [shake, setShake] = useState(false);
   const renameRef = useRef(null);
@@ -21,9 +28,33 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
     if (renaming) renameRef.current?.select();
   }, [renaming]);
 
+  useTouchDrag(rootRef, {
+    cardId: card.id,
+    title: card.title,
+    index,
+    colId: card.columnId,
+    onDrop: (colId, slot) => actions.moveCard(card.id, colId, slot),
+  });
+
   const openSubs = card.subtasks.filter((t) => !t.done).length;
   const hideDone = state.prefs.hideDoneSubtasks;
   const visibleSubs = hideDone ? card.subtasks.filter((t) => !t.done) : card.subtasks;
+  const category = state.categories.find((c) => c.id === card.categoryId);
+  const pendingReminders = (card.reminders || []).filter((r) => !r.fired).length;
+
+  // Due-date tone: overdue red, today amber, future neutral.
+  const dueInfo = (() => {
+    if (!card.dueDate) return null;
+    const today = new Date();
+    const stamp = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const label = new Date(`${card.dueDate}T12:00`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+    if (card.dueDate < stamp) return { label, cls: 'bg-red-500/15 text-red-600' };
+    if (card.dueDate === stamp) return { label: 'Today', cls: 'bg-amber-500/20 text-amber-700' };
+    return { label, cls: 'bg-ink/5 text-ink/50' };
+  })();
 
   const tryDone = () => {
     if (openSubs > 0) {
@@ -50,6 +81,9 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
 
   return (
     <div
+      ref={rootRef}
+      data-card-id={card.id}
+      data-index={index}
       draggable={!renaming}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/card-id', card.id);
@@ -68,6 +102,9 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
       className={`rounded-xl border border-ink/10 bg-surface shadow-sm transition-shadow ${
         shake ? 'animate-[cardshake_0.4s_ease]' : ''
       }`}
+      style={{
+        borderLeft: `4px solid ${category ? category.color : 'transparent'}`,
+      }}
     >
       {/* ── Main row ─────────────────────────────────────────────────── */}
       <div className="flex items-start gap-2 px-3 py-2.5">
@@ -95,17 +132,41 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
           ) : (
             <span className="break-words text-sm font-medium leading-snug">{card.title}</span>
           )}
-          <span className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-ink/45">
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink/45">
             {card.subtasks.length > 0 && (
               <span className={openSubs === 0 ? 'text-emerald-600' : ''}>
                 {card.subtasks.length - openSubs}/{card.subtasks.length} subtasks
               </span>
             )}
+            {dueInfo && (
+              <span className={`rounded-full px-1.5 py-px font-medium ${dueInfo.cls}`}>
+                {dueInfo.label}
+              </span>
+            )}
+            {pendingReminders > 0 && <span>🔔 {pendingReminders}</span>}
             {card.note && !expanded && <span>note</span>}
           </span>
         </button>
 
-        {/* + subtask — the spec's "+ sign inside the card" */}
+        {/* Color code */}
+        <div className="relative shrink-0 pt-0.5">
+          <button
+            type="button"
+            title={category ? `Color: ${category.name}` : 'Color code'}
+            onClick={() => setCatOpen((v) => !v)}
+            className="-m-1 rounded-lg p-1.5"
+          >
+            <span
+              className={`block h-3.5 w-3.5 rounded-full ${
+                category ? '' : 'border-2 border-dashed border-ink/30'
+              }`}
+              style={{ background: category?.color }}
+            />
+          </button>
+          {catOpen && <CategoryPicker card={card} onClose={() => setCatOpen(false)} />}
+        </div>
+
+        {/* + subtask */}
         <button
           type="button"
           title="Add subtask"
@@ -118,7 +179,7 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
           +
         </button>
 
-        {/* ⋯ menu: move / rename / delete */}
+        {/* ⋯ menu */}
         <div className="relative shrink-0">
           <button
             type="button"
@@ -131,7 +192,38 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
           {menu && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
-              <div className="absolute right-0 top-7 z-40 w-44 overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+              <div className="absolute right-0 top-7 z-40 w-56 overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+                {/* Due date — native picker inline */}
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <span className="text-sm text-ink/80">Due</span>
+                  <input
+                    type="date"
+                    value={card.dueDate || ''}
+                    onChange={(e) =>
+                      actions.updateCard(card.id, { dueDate: e.target.value || null })
+                    }
+                    className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-accent"
+                  />
+                  {card.dueDate && (
+                    <button
+                      type="button"
+                      title="Clear due date"
+                      onClick={() => actions.updateCard(card.id, { dueDate: null })}
+                      className="text-ink/40 hover:text-accent"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                <MenuItem
+                  onClick={() => {
+                    setMenu(false);
+                    setRemindersOpen(true);
+                  }}
+                >
+                  Reminders{pendingReminders > 0 ? ` (${pendingReminders})` : '…'}
+                </MenuItem>
+                <div className="my-1 h-px bg-ink/10" />
                 <MenuItem
                   onClick={() => {
                     setMenu(false);
@@ -235,6 +327,8 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
           />
         </div>
       )}
+
+      {remindersOpen && <ReminderSheet card={card} onClose={() => setRemindersOpen(false)} />}
     </div>
   );
 }

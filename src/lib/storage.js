@@ -6,6 +6,16 @@
 
 const STORAGE_KEY = 'prodlog_board_v1';
 
+// Color-code categories: fixed palette, user-renamable labels.
+export const DEFAULT_CATEGORIES = [
+  { id: 'cat-red', color: '#ef4444', name: 'Urgent' },
+  { id: 'cat-amber', color: '#f59e0b', name: 'Important' },
+  { id: 'cat-blue', color: '#3b82f6', name: 'Deep work' },
+  { id: 'cat-green', color: '#10b981', name: 'Quick win' },
+  { id: 'cat-violet', color: '#8b5cf6', name: 'Waiting' },
+  { id: 'cat-pink', color: '#ec4899', name: 'Personal' },
+];
+
 export const emptyState = () => ({
   // Column order = array order. Cards reference columns by id so renames are free.
   columns: [
@@ -16,11 +26,24 @@ export const emptyState = () => ({
   // columnId). status: 'live' | 'done' | 'deleted' — done/deleted cards stay in
   // the array (they power the Done/Deleted boards) until destroyed forever.
   // Card: { id, columnId, title, note, status, createdAt, doneAt, deletedAt,
+  //         dueDate: 'YYYY-MM-DD'|null, categoryId: string|null,
+  //         reminders: [{ id, at: 'YYYY-MM-DDTHH:mm' local, fired }],
   //         subtasks: [{ id, text, done }] }
   cards: [],
+  categories: DEFAULT_CATEGORIES,
   prefs: {
     hideDoneSubtasks: false, // board-level filter
   },
+});
+
+// Older blobs predate dueDate/reminders/categoryId — default them in.
+const normalizeCard = (c) => ({
+  note: '',
+  dueDate: null,
+  categoryId: null,
+  reminders: [],
+  subtasks: [],
+  ...c,
 });
 
 export function loadState() {
@@ -34,6 +57,11 @@ export function loadState() {
       ...base,
       ...parsed,
       columns: parsed.columns.length ? parsed.columns : base.columns,
+      cards: parsed.cards.map(normalizeCard),
+      categories:
+        Array.isArray(parsed.categories) && parsed.categories.length
+          ? parsed.categories
+          : base.categories,
       prefs: { ...base.prefs, ...(parsed.prefs || {}) },
     };
   } catch (err) {
@@ -69,6 +97,11 @@ export function parseImportedBlob(text) {
     ...base,
     ...parsed,
     columns: parsed.columns.length ? parsed.columns : base.columns,
+    cards: parsed.cards.map(normalizeCard),
+    categories:
+      Array.isArray(parsed.categories) && parsed.categories.length
+        ? parsed.categories
+        : base.categories,
     prefs: { ...base.prefs, ...(parsed.prefs || {}) },
   };
 }

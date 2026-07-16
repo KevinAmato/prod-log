@@ -37,7 +37,7 @@ export default function Column({ column, cards, columns, canDelete }) {
 
   return (
     <section
-      className="flex max-h-full w-[86vw] max-w-[330px] shrink-0 snap-center flex-col rounded-2xl bg-ink/[0.045] sm:w-80"
+      className="flex h-full min-h-0 w-[86vw] max-w-[330px] shrink-0 snap-center flex-col rounded-2xl bg-ink/[0.045] sm:w-80"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -108,7 +108,10 @@ export default function Column({ column, cards, columns, canDelete }) {
       </header>
 
       {/* ── Cards ─────────────────────────────────────────────────────── */}
-      <div className="min-h-[40px] flex-1 space-y-2 overflow-y-auto px-2 py-2">
+      <div
+        data-col-drop={column.id}
+        className="min-h-[40px] flex-1 space-y-2 overflow-y-auto px-2 py-2"
+      >
         {cards.map((card, i) => (
           <TaskCard
             key={card.id}

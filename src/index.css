@@ -28,6 +28,36 @@ body {
   overscroll-behavior-y: none; /* no pull-to-refresh eating a swipe on mobile */
 }
 
+/* ── Long-press touch drag ─────────────────────────────────────────────── */
+
+.drag-ghost {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  background: rgb(var(--surface));
+  color: rgb(var(--ink));
+  border: 1px solid rgb(var(--ink) / 0.15);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  box-shadow: 0 14px 32px rgb(0 0 0 / 0.28);
+  opacity: 0.95;
+}
+
+.drop-above {
+  box-shadow: 0 -3px 0 0 rgb(var(--accent)) !important;
+}
+.drop-below {
+  box-shadow: 0 3px 0 0 rgb(var(--accent)) !important;
+}
+.drop-into {
+  outline: 2px dashed rgb(var(--accent) / 0.5);
+  outline-offset: -4px;
+  border-radius: 16px;
+}
+
 /* Blocked "mark done" feedback — the card wiggles to say "subtasks first". */
 @keyframes cardshake {
   0%,

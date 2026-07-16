@@ -12,7 +12,11 @@ export default function Board() {
   const liveCards = state.cards.filter((c) => c.status === 'live');
 
   return (
-    <div className="flex h-full items-start gap-3 overflow-x-auto overflow-y-hidden scroll-px-3 snap-x snap-mandatory px-3 py-3 sm:snap-none">
+    <div
+      data-board
+      className="flex h-full gap-3 overflow-x-auto overflow-y-hidden scroll-px-3 snap-x snap-mandatory px-3 pt-3 sm:snap-none"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+    >
       {state.columns.map((col) => (
         <Column
           key={col.id}
