@@ -5,6 +5,7 @@ import Header from './components/Header.jsx';
 import Board from './components/Board.jsx';
 import ArchiveList from './components/ArchiveList.jsx';
 import ReminderEngine from './components/ReminderEngine.jsx';
+import SyncEngine from './components/SyncEngine.jsx';
 
 export default function App() {
   const { storageFull, undo, redo } = useStore();
@@ -33,6 +34,7 @@ export default function App() {
   return (
     <SnackProvider>
       <ReminderEngine />
+      <SyncEngine />
       <div className="flex h-[100dvh] flex-col">
         <Header view={view} setView={setView} />
 

@@ -1,0 +1,11 @@
+# ProdLog sync worker — a ~100-line blob store on Cloudflare's free tier.
+# One KV entry per sync key (hashed); the app pulls, merges locally, pushes.
+name = "prodlog-sync"
+main = "src/index.js"
+compatibility_date = "2026-04-01"
+
+[[kv_namespaces]]
+binding = "STATE"
+# Placeholder for local dev (miniflare ignores it). Before the first real
+# deploy run:  npx wrangler kv namespace create STATE   and paste the id here.
+id = "00000000000000000000000000000000"

@@ -37,15 +37,21 @@ export const emptyState = () => ({
     filterCategoryId: null, // board-level: only show this color (null = all)
     filterOverdue: false, // board-level: only show overdue cards
   },
+  // Sync merge metadata: lastModified stamps every commit; tombstones record
+  // permanent deletions so another device's copy can't resurrect them.
+  lastModified: null,
+  tombstones: { cards: [], columns: [] },
 });
 
-// Older blobs predate dueDate/reminders/categoryId/collapsed — default them in.
+// Older blobs predate dueDate/reminders/categoryId/collapsed/updatedAt —
+// default them in.
 const normalizeCard = (c) => ({
   note: '',
   dueDate: null,
   categoryId: null,
   collapsed: false,
   reminders: [],
+  updatedAt: c.updatedAt || c.createdAt || null,
   ...c,
   subtasks: (c.subtasks || []).map((t) => ({ dueDate: null, reminders: [], ...t })),
 });
@@ -67,6 +73,10 @@ export function loadState() {
           ? parsed.categories
           : base.categories,
       prefs: { ...base.prefs, ...(parsed.prefs || {}) },
+      tombstones: {
+        cards: parsed.tombstones?.cards || [],
+        columns: parsed.tombstones?.columns || [],
+      },
     };
   } catch (err) {
     console.error('[storage] Failed to load state, starting fresh:', err);
@@ -107,6 +117,10 @@ export function parseImportedBlob(text) {
         ? parsed.categories
         : base.categories,
     prefs: { ...base.prefs, ...(parsed.prefs || {}) },
+    tombstones: {
+      cards: parsed.tombstones?.cards || [],
+      columns: parsed.tombstones?.columns || [],
+    },
   };
 }
 

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import BackupControls from './BackupControls.jsx';
+import SyncSheet from './SyncSheet.jsx';
+import { syncEnabled } from '../lib/sync.js';
 
 const VIEWS = [
   ['live', 'Live'],
@@ -14,6 +16,7 @@ export default function Header({ view, setView }) {
   const { state, actions, theme, toggleTheme } = useStore();
   const [menu, setMenu] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
 
   const { filterCategoryId, filterOverdue } = state.prefs;
   const filterActive = !!filterCategoryId || filterOverdue;
@@ -135,7 +138,18 @@ export default function Header({ view, setView }) {
           {menu && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
-              <div className="absolute right-0 top-8 z-40 flex w-48 flex-col overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+              <div className="absolute right-0 top-8 z-40 flex w-52 flex-col overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(false);
+                    setSyncOpen(true);
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm text-ink/80 hover:bg-ink/5"
+                >
+                  Sync devices{syncEnabled() ? ' ✓' : '…'}
+                </button>
+                <div className="my-1 h-px bg-ink/10" />
                 <BackupControls />
               </div>
             </>
@@ -165,6 +179,8 @@ export default function Header({ view, setView }) {
           ))}
         </div>
       </div>
+
+      {syncOpen && <SyncSheet onClose={() => setSyncOpen(false)} />}
     </header>
   );
 }

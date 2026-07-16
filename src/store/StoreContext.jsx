@@ -29,7 +29,9 @@ export function StoreProvider({ children }) {
     setHist((h) => {
       const next = typeof updater === 'function' ? updater(h.present) : updater;
       if (next === h.present) return h; // no-op action — don't record history
-      return { past: [...h.past, h.present].slice(-60), present: next, future: [] };
+      // lastModified drives the "newer side" tiebreak in the sync merge.
+      const stamped = { ...next, lastModified: new Date().toISOString() };
+      return { past: [...h.past, h.present].slice(-60), present: stamped, future: [] };
     });
   }, []);
 
@@ -84,9 +86,13 @@ export function StoreProvider({ children }) {
   }, [state]);
 
   const actions = useMemo(() => {
+    // Every card mutation flows through here, so per-card `updatedAt` (the
+    // sync merge's last-write-wins clock) is stamped in one place.
     const patchCard = (s, id, fn) => ({
       ...s,
-      cards: s.cards.map((c) => (c.id === id ? fn(c) : c)),
+      cards: s.cards.map((c) =>
+        c.id === id ? { ...fn(c), updatedAt: new Date().toISOString() } : c,
+      ),
     });
 
     return {
@@ -124,12 +130,20 @@ export function StoreProvider({ children }) {
           if (s.columns.length <= 1) return s;
           const columns = s.columns.filter((c) => c.id !== id);
           const fallback = columns[0].id;
+          const now = new Date().toISOString();
           return {
             ...s,
             columns,
             cards: s.cards.map((c) =>
-              c.columnId === id && c.status === 'live' ? { ...c, columnId: fallback } : c,
+              c.columnId === id && c.status === 'live'
+                ? { ...c, columnId: fallback, updatedAt: now }
+                : c,
             ),
+            // Tombstone so the sync merge doesn't resurrect the column.
+            tombstones: {
+              ...(s.tombstones || { cards: [], columns: [] }),
+              columns: [...(s.tombstones?.columns || []), { id, at: now }].slice(-100),
+            },
           };
         });
       },
@@ -151,8 +165,13 @@ export function StoreProvider({ children }) {
               note: '',
               status: 'live',
               createdAt: now,
+              updatedAt: now,
               doneAt: null,
               deletedAt: null,
+              dueDate: null,
+              categoryId: null,
+              collapsed: false,
+              reminders: [],
               subtasks: [],
             })),
           ],
@@ -202,9 +221,20 @@ export function StoreProvider({ children }) {
       },
 
       // Permanent removal — only reachable from the Deleted board, behind a
-      // confirm in the UI.
+      // confirm in the UI. Leaves a tombstone so the sync merge doesn't
+      // resurrect the card from another device's copy.
       destroyCard(id) {
-        setState((s) => ({ ...s, cards: s.cards.filter((c) => c.id !== id) }));
+        setState((s) => ({
+          ...s,
+          cards: s.cards.filter((c) => c.id !== id),
+          tombstones: {
+            ...(s.tombstones || { cards: [], columns: [] }),
+            cards: [
+              ...(s.tombstones?.cards || []),
+              { id, at: new Date().toISOString() },
+            ].slice(-300),
+          },
+        }));
       },
 
       // Reposition a card: `index` is the target slot among the LIVE cards of
@@ -224,7 +254,7 @@ export function StoreProvider({ children }) {
             const last = colCards[colCards.length - 1];
             gi = last ? rest.indexOf(last) + 1 : rest.length;
           }
-          const moved = { ...card, columnId };
+          const moved = { ...card, columnId, updatedAt: new Date().toISOString() };
           return { ...s, cards: [...rest.slice(0, gi), moved, ...rest.slice(gi)] };
         });
       },
