@@ -6,19 +6,27 @@ import QuickAdd from './QuickAdd.jsx';
 import CategoryPicker from './CategoryPicker.jsx';
 import ReminderSheet from './ReminderSheet.jsx';
 import SubtaskRow from './SubtaskRow.jsx';
-import useTouchDrag from '../lib/useTouchDrag.js';
 import { dueInfo as dueInfoOf } from '../lib/dates.js';
 
 // One task. Collapsed: checkbox + title (+ progress/due/reminder chips) with a
 // category color stripe. The subtask list folds behind a "n/m ▾" chip
 // (persisted per card); tapping the body expands the note + subtask adder.
-// Drag: HTML5 dnd on desktop, long-press (via useTouchDrag) on touch.
+// Drag comes from @hello-pangea/dnd — the whole card is the handle (`provided`
+// props from the parent Draggable); buttons/inputs inside stay tappable
+// because the library never starts a drag from interactive elements.
 // `sortMode` hides Move up/down when the column is auto-sorted (they'd be
 // no-ops against a display sort).
-export default function TaskCard({ card, index, columnCount, columns, onDropCard, sortMode = 'manual' }) {
+export default function TaskCard({
+  card,
+  index,
+  columnCount,
+  columns,
+  sortMode = 'manual',
+  provided,
+  isDragging = false,
+}) {
   const { state, actions, undo } = useStore();
   const snack = useSnack();
-  const rootRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -31,14 +39,6 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
   useEffect(() => {
     if (renaming) renameRef.current?.select();
   }, [renaming]);
-
-  useTouchDrag(rootRef, {
-    cardId: card.id,
-    title: card.title,
-    index,
-    colId: card.columnId,
-    onDrop: (colId, slot) => actions.moveCard(card.id, colId, slot),
-  });
 
   const openSubs = card.subtasks.filter((t) => !t.done).length;
   const hideDone = state.prefs.hideDoneSubtasks;
@@ -73,28 +73,15 @@ export default function TaskCard({ card, index, columnCount, columns, onDropCard
 
   return (
     <div
-      ref={rootRef}
+      ref={provided?.innerRef}
+      {...provided?.draggableProps}
+      {...provided?.dragHandleProps}
       data-card-id={card.id}
-      data-index={index}
-      draggable={!renaming}
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/card-id', card.id);
-        e.dataTransfer.effectAllowed = 'move';
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const dragId = e.dataTransfer.getData('text/card-id');
-        if (dragId && dragId !== card.id) onDropCard(dragId, index);
-      }}
-      className={`select-none rounded-xl border border-ink/10 bg-surface shadow-sm transition-shadow ${
-        shake ? 'animate-[cardshake_0.4s_ease]' : ''
-      }`}
+      className={`mb-2 select-none rounded-xl border border-ink/10 bg-surface shadow-sm transition-shadow ${
+        isDragging ? 'shadow-xl ring-2 ring-accent/40' : ''
+      } ${shake ? 'animate-[cardshake_0.4s_ease]' : ''}`}
       style={{
+        ...provided?.draggableProps?.style,
         borderLeft: `4px solid ${category ? category.color : 'transparent'}`,
       }}
     >

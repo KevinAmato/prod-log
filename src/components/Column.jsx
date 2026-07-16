@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { useStore } from '../store/StoreContext.jsx';
 import TaskCard from './TaskCard.jsx';
 import QuickAdd from './QuickAdd.jsx';
@@ -59,15 +60,7 @@ export default function Column({ column, cards, columns, canDelete }) {
   };
 
   return (
-    <section
-      className="flex h-full min-h-0 w-[86vw] max-w-[330px] shrink-0 snap-center flex-col rounded-2xl bg-ink/[0.045] sm:w-80"
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        const dragId = e.dataTransfer.getData('text/card-id');
-        if (dragId) actions.moveCard(dragId, column.id, Infinity);
-      }}
-    >
+    <section className="flex h-full min-h-0 w-[86vw] max-w-[330px] shrink-0 snap-center flex-col rounded-2xl bg-ink/[0.045] sm:w-80">
       {/* ── Column header ─────────────────────────────────────────────── */}
       <header className="flex items-center gap-2 px-3 pb-1 pt-3">
         {renaming ? (
@@ -159,26 +152,44 @@ export default function Column({ column, cards, columns, canDelete }) {
         </div>
       </header>
 
-      {/* ── Cards ─────────────────────────────────────────────────────── */}
-      <div
-        data-col-drop={column.id}
-        className="min-h-[40px] flex-1 space-y-2 overflow-y-auto px-2 py-2"
-      >
-        {sorted.map((card, i) => (
-          <TaskCard
-            key={card.id}
-            card={card}
-            index={i}
-            columnCount={sorted.length}
-            columns={columns}
-            sortMode={sort}
-            onDropCard={(dragId, slot) => actions.moveCard(dragId, column.id, slot)}
-          />
-        ))}
-        {sorted.length === 0 && (
-          <p className="px-2 py-3 text-center text-xs text-ink/30">No tasks yet</p>
+      {/* ── Cards (droppable; sorted columns are display-only, so their
+             cards can't be drag SOURCES — drops into them append) ───────── */}
+      <Droppable droppableId={column.id}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={`min-h-[40px] flex-1 overflow-y-auto px-2 py-2 transition-colors ${
+              snapshot.isDraggingOver ? 'rounded-xl bg-accent/[0.06]' : ''
+            }`}
+          >
+            {sorted.map((card, i) => (
+              <Draggable
+                key={card.id}
+                draggableId={card.id}
+                index={i}
+                isDragDisabled={sort !== 'manual'}
+              >
+                {(prov, snap) => (
+                  <TaskCard
+                    provided={prov}
+                    isDragging={snap.isDragging}
+                    card={card}
+                    index={i}
+                    columnCount={sorted.length}
+                    columns={columns}
+                    sortMode={sort}
+                  />
+                )}
+              </Draggable>
+            ))}
+            {provided.placeholder}
+            {sorted.length === 0 && (
+              <p className="px-2 py-3 text-center text-xs text-ink/30">No tasks yet</p>
+            )}
+          </div>
         )}
-      </div>
+      </Droppable>
 
       {/* ── Quick add (pinned) ────────────────────────────────────────── */}
       <div className="px-2 pb-2">
