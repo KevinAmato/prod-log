@@ -12,7 +12,7 @@ import useSpeech from '../lib/useSpeech.js';
 // tapping anywhere outside. Renders nothing where the Web Speech API is
 // unavailable.
 export default function QuickVoice() {
-  const { state, actions } = useStore();
+  const { state, actions, undo, canUndo } = useStore();
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -29,6 +29,7 @@ export default function QuickVoice() {
       const { reply, receipts } = await runAssistant({
         state: stateRef.current,
         actions,
+        undo,
         history: [{ role: 'user', content: text }],
       });
       setBubble({ kind: 'reply', text: reply, receipts });
@@ -123,12 +124,21 @@ export default function QuickVoice() {
                       {bubble.receipts.map((r, i) => (
                         <li
                           key={i}
-                          className={`text-[11px] ${r.startsWith('✓') ? 'text-emerald-600' : 'text-red-600'}`}
+                          className={`text-[11px] ${r.text.startsWith('✓') ? 'text-emerald-600' : 'text-red-600'}`}
                         >
-                          {r}
+                          {r.text}
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {bubble.receipts?.some((r) => r.destructive) && canUndo && (
+                    <button
+                      type="button"
+                      onClick={undo}
+                      className="mt-1.5 flex items-center gap-1 border-t border-ink/10 pt-1.5 text-[11px] font-medium text-accent hover:underline"
+                    >
+                      ↺ Undo last action
+                    </button>
                   )}
                 </>
               )}

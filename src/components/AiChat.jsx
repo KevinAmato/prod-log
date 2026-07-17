@@ -12,7 +12,7 @@ import useSpeech from '../lib/useSpeech.js';
 // Voice is the primary input: the mic is the largest control in the bar —
 // tap, speak, pause, and the final transcript sends itself.
 export default function AiChat({ onClose }) {
-  const { state, actions } = useStore();
+  const { state, actions, undo, canUndo } = useStore();
   const [messages, setMessages] = useState([]); // {role, content, receipts?, error?}
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -41,12 +41,13 @@ export default function AiChat({ onClose }) {
         role: m.role,
         content:
           m.role === 'assistant' && m.receipts?.length
-            ? `${m.content}\n(did: ${m.receipts.join('; ')})`
+            ? `${m.content}\n(did: ${m.receipts.map((r) => r.text).join('; ')})`
             : m.content,
       }));
       const { reply, receipts } = await runAssistant({
         state: stateRef.current,
         actions,
+        undo,
         history: forModel,
       });
       setMessages((ms) => [...ms, { role: 'assistant', content: reply, receipts }]);
@@ -113,13 +114,25 @@ export default function AiChat({ onClose }) {
                     {m.receipts.map((r, j) => (
                       <li
                         key={j}
-                        className={`text-[11px] ${r.startsWith('✓') ? 'text-emerald-600' : 'text-red-600'}`}
+                        className={`text-[11px] ${r.text.startsWith('✓') ? 'text-emerald-600' : 'text-red-600'}`}
                       >
-                        {r}
+                        {r.text}
                       </li>
                     ))}
                   </ul>
                 )}
+                {i === messages.length - 1 &&
+                  m.role === 'assistant' &&
+                  m.receipts?.some((r) => r.destructive) &&
+                  canUndo && (
+                    <button
+                      type="button"
+                      onClick={undo}
+                      className="mt-1.5 flex items-center gap-1 border-t border-ink/10 pt-1.5 text-[11px] font-medium text-accent hover:underline"
+                    >
+                      ↺ Undo last action
+                    </button>
+                  )}
               </div>
             </div>
           ))}

@@ -96,19 +96,30 @@ async function anthropicChat(apiKey, model, system, messages) {
 }
 
 async function openaiChat(apiKey, model, system, messages) {
-  // No temperature / max_tokens so any model (incl. reasoning models that
-  // reject those params) works without per-model special-casing.
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'system', content: system }, ...messages],
-    }),
-  });
+  // No temperature so any model works without per-model special-casing.
+  const body = { model, messages: [{ role: 'system', content: system }, ...messages] };
+  const post = (payload) =>
+    fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(payload),
+    });
+
+  // Cap output for BYOK cost control. Reasoning models (o1/o3) reject
+  // max_tokens outright — rather than special-case every model id, try
+  // capped first and retry once uncapped if that specific param is rejected.
+  let res = await post({ ...body, max_tokens: 2000 });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
-    throw aiError(res.status, e?.error?.message);
+    if (res.status === 400 && /max_tokens/i.test(e?.error?.message || '')) {
+      res = await post(body);
+      if (!res.ok) {
+        const e2 = await res.json().catch(() => ({}));
+        throw aiError(res.status, e2?.error?.message);
+      }
+    } else {
+      throw aiError(res.status, e?.error?.message);
+    }
   }
   const data = await res.json();
   return (data.choices?.[0]?.message?.content || '').trim();
@@ -127,6 +138,7 @@ async function geminiChat(apiKey, model, system, messages) {
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }],
       })),
+      generationConfig: { maxOutputTokens: 2000 }, // BYOK cost control
     }),
   });
   if (!res.ok) {
