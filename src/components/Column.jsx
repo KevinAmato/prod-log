@@ -1,40 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { useStore } from '../store/StoreContext.jsx';
+import { useSnack } from './Snackbar.jsx';
 import TaskCard from './TaskCard.jsx';
 import QuickAdd from './QuickAdd.jsx';
 
-const SORTS = [
-  ['manual', 'Manual (drag order)'],
-  ['due', 'Due date'],
-  ['az', 'A → Z'],
-  ['za', 'Z → A'],
+const SORT_ACTIONS = [
+  ['due', 'Sort by due date'],
+  ['az', 'Sort A → Z'],
+  ['za', 'Sort Z → A'],
 ];
 
 // One board column: rename inline, sort + delete via menu (live cards move to
 // the first remaining column), quick-add pinned at the bottom. Cards can be
 // dropped anywhere in the column body (drops on a card insert at its slot).
-// Sort is a per-column DISPLAY order (persisted on the column); the underlying
-// manual order is untouched, so switching back to Manual restores it.
+// Sorting is ONE-SHOT: it rearranges the cards once and dragging keeps
+// working — a persistent sort mode used to disable dragging, which read as
+// "drag and drop is broken".
 export default function Column({ column, cards, columns, canDelete }) {
-  const { actions } = useStore();
+  const { actions, undo } = useStore();
+  const snack = useSnack();
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const renameRef = useRef(null);
-
-  const sort = column.sort || 'manual';
-  const sorted = useMemo(() => {
-    if (sort === 'manual') return cards;
-    const arr = [...cards];
-    if (sort === 'due') {
-      arr.sort((a, b) => (a.dueDate || '9999-99-99').localeCompare(b.dueDate || '9999-99-99'));
-    } else if (sort === 'az') {
-      arr.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
-    } else if (sort === 'za') {
-      arr.sort((a, b) => b.title.localeCompare(a.title, undefined, { sensitivity: 'base' }));
-    }
-    return arr;
-  }, [cards, sort]);
 
   useEffect(() => {
     if (renaming) renameRef.current?.select();
@@ -86,15 +74,6 @@ export default function Column({ column, cards, columns, canDelete }) {
           </button>
         )}
 
-        {sort !== 'manual' && (
-          <span
-            title="Sorted — drag order is paused"
-            className="shrink-0 rounded-full bg-accent/10 px-1.5 py-px text-[10px] font-medium text-accent"
-          >
-            {sort === 'due' ? 'due ↑' : sort === 'az' ? 'A→Z' : 'Z→A'}
-          </span>
-        )}
-
         <div className="relative shrink-0">
           <button
             type="button"
@@ -108,22 +87,17 @@ export default function Column({ column, cards, columns, canDelete }) {
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
               <div className="absolute right-0 top-7 z-40 w-52 overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
-                <p className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/40">
-                  Sort by
-                </p>
-                {SORTS.map(([key, label]) => (
+                {SORT_ACTIONS.map(([key, label]) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => {
-                      actions.updateColumn(column.id, { sort: key });
+                      actions.sortColumn(column.id, key);
                       setMenu(false);
+                      snack('Sorted — drag anytime to rearrange', { label: 'Undo', onAction: undo });
                     }}
-                    className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-ink/5 ${
-                      sort === key ? 'font-semibold text-accent' : 'text-ink/80'
-                    }`}
+                    className="block w-full px-3 py-1.5 text-left text-sm text-ink/80 hover:bg-ink/5"
                   >
-                    {sort === key ? '✓ ' : ''}
                     {label}
                   </button>
                 ))}
@@ -152,8 +126,7 @@ export default function Column({ column, cards, columns, canDelete }) {
         </div>
       </header>
 
-      {/* ── Cards (droppable; sorted columns are display-only, so their
-             cards can't be drag SOURCES — drops into them append) ───────── */}
+      {/* ── Cards (droppable) ─────────────────────────────────────────── */}
       <Droppable droppableId={column.id}>
         {(provided, snapshot) => (
           <div
@@ -163,28 +136,22 @@ export default function Column({ column, cards, columns, canDelete }) {
               snapshot.isDraggingOver ? 'rounded-xl bg-accent/[0.06]' : ''
             }`}
           >
-            {sorted.map((card, i) => (
-              <Draggable
-                key={card.id}
-                draggableId={card.id}
-                index={i}
-                isDragDisabled={sort !== 'manual'}
-              >
+            {cards.map((card, i) => (
+              <Draggable key={card.id} draggableId={card.id} index={i}>
                 {(prov, snap) => (
                   <TaskCard
                     provided={prov}
                     isDragging={snap.isDragging}
                     card={card}
                     index={i}
-                    columnCount={sorted.length}
+                    columnCount={cards.length}
                     columns={columns}
-                    sortMode={sort}
                   />
                 )}
               </Draggable>
             ))}
             {provided.placeholder}
-            {sorted.length === 0 && (
+            {cards.length === 0 && (
               <p className="px-2 py-3 text-center text-xs text-ink/30">No tasks yet</p>
             )}
           </div>

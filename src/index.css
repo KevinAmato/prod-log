@@ -5,14 +5,14 @@
 :root {
   --ink: 28 26 23; /* #1c1a17 */
   --paper: 246 244 239; /* #f6f4ef */
-  --accent: 181 86 46; /* #b5562e */
+  --accent: 124 58 237; /* #7c3aed — smooth violet-purple */
   --surface: 255 255 255; /* card / input surfaces */
 }
 
 .dark {
   --ink: 237 234 228;
   --paper: 24 22 20;
-  --accent: 209 110 74;
+  --accent: 167 139 250; /* #a78bfa — lighter violet for dark surfaces */
   --surface: 42 39 37;
 }
 

@@ -115,12 +115,27 @@ export function StoreProvider({ children }) {
         }));
       },
 
-      // Generic column patch — used for the per-column display sort.
-      updateColumn(id, patch) {
-        setState((s) => ({
-          ...s,
-          columns: s.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-        }));
+      // One-shot sort: reorders the column's live cards IN the manual order
+      // (drag keeps working afterwards — sorting is an action, not a mode).
+      sortColumn(columnId, mode) {
+        const cmp = {
+          due: (a, b) => (a.dueDate || '9999-99-99').localeCompare(b.dueDate || '9999-99-99'),
+          az: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+          za: (a, b) => b.title.localeCompare(a.title, undefined, { sensitivity: 'base' }),
+        }[mode];
+        if (!cmp) return;
+        setState((s) => {
+          const inCol = s.cards.filter((c) => c.columnId === columnId && c.status === 'live');
+          const sorted = [...inCol].sort(cmp);
+          if (sorted.every((c, i) => c === inCol[i])) return s; // already in order
+          let i = 0;
+          return {
+            ...s,
+            cards: s.cards.map((c) =>
+              c.columnId === columnId && c.status === 'live' ? sorted[i++] : c,
+            ),
+          };
+        });
       },
 
       // Live cards in a removed column move to the first remaining column so

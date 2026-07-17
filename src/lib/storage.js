@@ -66,7 +66,10 @@ export function loadState() {
     return {
       ...base,
       ...parsed,
-      columns: parsed.columns.length ? parsed.columns : base.columns,
+      // eslint-disable-next-line no-unused-vars
+      columns: (parsed.columns.length ? parsed.columns : base.columns).map(
+        ({ sort, ...c }) => c, // `sort` was a short-lived display mode — now inert
+      ),
       cards: parsed.cards.map(normalizeCard),
       categories:
         Array.isArray(parsed.categories) && parsed.categories.length
@@ -110,7 +113,10 @@ export function parseImportedBlob(text) {
   return {
     ...base,
     ...parsed,
-    columns: parsed.columns.length ? parsed.columns : base.columns,
+    // eslint-disable-next-line no-unused-vars
+    columns: (parsed.columns.length ? parsed.columns : base.columns).map(
+      ({ sort, ...c }) => c,
+    ),
     cards: parsed.cards.map(normalizeCard),
     categories:
       Array.isArray(parsed.categories) && parsed.categories.length

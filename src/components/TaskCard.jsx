@@ -12,16 +12,15 @@ import { dueInfo as dueInfoOf } from '../lib/dates.js';
 // category color stripe. The subtask list folds behind a "n/m ▾" chip
 // (persisted per card); tapping the body expands the note + subtask adder.
 // Drag comes from @hello-pangea/dnd — the whole card is the handle (`provided`
-// props from the parent Draggable); buttons/inputs inside stay tappable
-// because the library never starts a drag from interactive elements.
-// `sortMode` hides Move up/down when the column is auto-sorted (they'd be
-// no-ops against a display sort).
+// props from the parent Draggable). The library refuses to start drags from
+// interactive ELEMENTS (button/input/textarea), which is why the title/body
+// is a plain div with role="button": tap toggles expand, press-and-move
+// drags — while the real controls (checkbox, color, +, ⋯) stay drag-proof.
 export default function TaskCard({
   card,
   index,
   columnCount,
   columns,
-  sortMode = 'manual',
   provided,
   isDragging = false,
 }) {
@@ -91,10 +90,14 @@ export default function TaskCard({
           <CheckCircle checked={false} onToggle={tryDone} title="Mark done" />
         </div>
 
-        <button
-          type="button"
+        {/* Plain div, NOT a <button>: buttons block drag-start (by design in
+            the dnd library), and this face must both tap-to-expand AND serve
+            as the card's main drag surface. */}
+        <div
+          role="button"
+          tabIndex={-1}
           onClick={() => setExpanded((v) => !v)}
-          className="min-w-0 flex-1 text-left"
+          className="min-w-0 flex-1 cursor-pointer text-left"
         >
           {renaming ? (
             <input
@@ -136,7 +139,7 @@ export default function TaskCard({
             {pendingReminders > 0 && <span>🔔 {pendingReminders}</span>}
             {card.note && !expanded && <span>note</span>}
           </span>
-        </button>
+        </div>
 
         {/* Color code */}
         <div className="relative shrink-0 pt-0.5">
@@ -222,28 +225,24 @@ export default function TaskCard({
                 >
                   Rename
                 </MenuItem>
-                {sortMode === 'manual' && (
-                  <>
-                    <MenuItem
-                      disabled={index === 0}
-                      onClick={() => {
-                        setMenu(false);
-                        actions.moveCard(card.id, card.columnId, index - 1);
-                      }}
-                    >
-                      Move up
-                    </MenuItem>
-                    <MenuItem
-                      disabled={index >= columnCount - 1}
-                      onClick={() => {
-                        setMenu(false);
-                        actions.moveCard(card.id, card.columnId, index + 1);
-                      }}
-                    >
-                      Move down
-                    </MenuItem>
-                  </>
-                )}
+                <MenuItem
+                  disabled={index === 0}
+                  onClick={() => {
+                    setMenu(false);
+                    actions.moveCard(card.id, card.columnId, index - 1);
+                  }}
+                >
+                  Move up
+                </MenuItem>
+                <MenuItem
+                  disabled={index >= columnCount - 1}
+                  onClick={() => {
+                    setMenu(false);
+                    actions.moveCard(card.id, card.columnId, index + 1);
+                  }}
+                >
+                  Move down
+                </MenuItem>
                 {columns
                   .filter((c) => c.id !== card.columnId)
                   .map((c) => (

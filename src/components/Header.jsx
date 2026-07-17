@@ -87,7 +87,7 @@ export default function Header({ view, setView }) {
                     type="checkbox"
                     checked={filterOverdue}
                     onChange={(e) => actions.setPref('filterOverdue', e.target.checked)}
-                    className="h-4 w-4 accent-[#b5562e]"
+                    className="h-4 w-4 accent-[#7c3aed]"
                   />
                   Overdue only
                 </label>
@@ -96,7 +96,7 @@ export default function Header({ view, setView }) {
                     type="checkbox"
                     checked={state.prefs.hideDoneSubtasks}
                     onChange={(e) => actions.setPref('hideDoneSubtasks', e.target.checked)}
-                    className="h-4 w-4 accent-[#b5562e]"
+                    className="h-4 w-4 accent-[#7c3aed]"
                   />
                   Hide done subtasks
                 </label>

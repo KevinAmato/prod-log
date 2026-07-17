@@ -31,14 +31,6 @@ export default function Board() {
     if (destination.droppableId === source.droppableId && destination.index === source.index)
       return;
 
-    // Dropping into an auto-sorted column: position is decided by the sort,
-    // so just append to the underlying manual order.
-    const destCol = state.columns.find((c) => c.id === destination.droppableId);
-    if ((destCol?.sort || 'manual') !== 'manual') {
-      actions.moveCard(draggableId, destination.droppableId, Infinity);
-      return;
-    }
-
     // The visible list may be filtered, so map the visible destination index
     // to a slot among ALL live cards of the destination column (moveCard
     // indexes exclude the moving card).
@@ -60,7 +52,18 @@ export default function Board() {
   };
 
   return (
-    <DragDropContext onDragStart={() => setDragging(true)} onDragEnd={onDragEnd}>
+    <DragDropContext
+      onDragStart={() => setDragging(true)}
+      onDragEnd={onDragEnd}
+      // Softer cross-column drags on mobile: the board starts auto-scrolling
+      // much earlier (30% from the edge vs 25% default) and ramps to a faster
+      // max sooner, so nudging a card toward the next column scrolls the view.
+      autoScrollerOptions={{
+        startFromPercentage: 0.3,
+        maxScrollAtPercentage: 0.15,
+        maxPixelScroll: 34,
+      }}
+    >
       <div
         className={`flex h-full gap-3 overflow-x-auto overflow-y-hidden scroll-px-3 px-3 pt-3 sm:snap-none ${
           dragging ? '' : 'snap-x snap-mandatory' // snap fights dnd auto-scroll

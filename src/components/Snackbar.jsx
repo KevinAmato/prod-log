@@ -32,7 +32,7 @@ export function SnackProvider({ children }) {
           {snack.label && (
             <button
               onClick={act}
-              className="whitespace-nowrap font-semibold text-[#e8926b] underline-offset-2 hover:underline"
+              className="whitespace-nowrap font-semibold text-[#c4b5fd] underline-offset-2 hover:underline"
             >
               {snack.label}
             </button>
