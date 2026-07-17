@@ -8,16 +8,19 @@ import ReminderSheet from './ReminderSheet.jsx';
 import SubtaskRow from './SubtaskRow.jsx';
 import { dueInfo as dueInfoOf } from '../lib/dates.js';
 
-// One task. Collapsed: checkbox + title (+ progress/due/reminder chips) with a
-// category color stripe. The subtask list folds behind a "n/m ▾" chip
-// (persisted per card); tapping the body expands the note + subtask adder.
+// One task. Collapsed: #number, checkbox, title (+ progress/due/reminder
+// chips) with a category color stripe. The subtask list folds behind a
+// "n/m ▾" chip (persisted per card); tapping the body expands the note +
+// subtask adder. `number` is the global top-to-bottom index — the reference
+// the AI assistant and voice commands use ("complete task 7").
 // Drag comes from @hello-pangea/dnd — the whole card is the handle (`provided`
 // props from the parent Draggable). The library refuses to start drags from
 // interactive ELEMENTS (button/input/textarea), which is why the title/body
 // is a plain div with role="button": tap toggles expand, press-and-move
-// drags — while the real controls (checkbox, color, +, ⋯) stay drag-proof.
+// drags — while the real controls (checkbox, color, ⋯) stay drag-proof.
 export default function TaskCard({
   card,
+  number,
   index,
   columnCount,
   columns,
@@ -27,7 +30,6 @@ export default function TaskCard({
   const { state, actions, undo } = useStore();
   const snack = useSnack();
   const [expanded, setExpanded] = useState(false);
-  const [addingSub, setAddingSub] = useState(false);
   const [menu, setMenu] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [remindersOpen, setRemindersOpen] = useState(false);
@@ -112,7 +114,14 @@ export default function TaskCard({
               className="w-full rounded border border-accent/50 bg-surface px-1.5 py-0.5 text-sm outline-none"
             />
           ) : (
-            <span className="break-words text-sm font-medium leading-snug">{card.title}</span>
+            <span className="break-words text-sm font-medium leading-snug">
+              {number != null && (
+                <span className="mr-1.5 font-mono text-[11px] font-normal text-ink/35">
+                  #{number}
+                </span>
+              )}
+              {card.title}
+            </span>
           )}
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink/45">
             {card.subtasks.length > 0 && (
@@ -158,19 +167,6 @@ export default function TaskCard({
           </button>
           {catOpen && <CategoryPicker card={card} onClose={() => setCatOpen(false)} />}
         </div>
-
-        {/* + subtask */}
-        <button
-          type="button"
-          title="Add subtask"
-          onClick={() => {
-            setExpanded(true);
-            setAddingSub(true);
-          }}
-          className="-m-1 shrink-0 rounded-lg p-1.5 text-lg leading-none text-ink/40 hover:bg-ink/5 hover:text-accent"
-        >
-          +
-        </button>
 
         {/* ⋯ menu */}
         <div className="relative shrink-0">
@@ -270,18 +266,21 @@ export default function TaskCard({
       {visibleSubs.length > 0 && !card.collapsed && (
         <ul className="space-y-0.5 px-3 pb-2 pl-[42px]">
           {visibleSubs.map((t) => (
-            <SubtaskRow key={t.id} card={card} sub={t} />
+            <SubtaskRow
+              key={t.id}
+              card={card}
+              sub={t}
+              number={number != null ? `${number}.${card.subtasks.indexOf(t) + 1}` : null}
+            />
           ))}
         </ul>
       )}
 
       {/* ── Expanded: note + subtask adder ────────────────────────────── */}
-      {(expanded || addingSub) && (
+      {expanded && (
         <div className="space-y-2 border-t border-ink/5 px-3 py-2 pl-[42px]">
           <QuickAdd
             compact
-            autoOpen={addingSub}
-            onClose={() => setAddingSub(false)}
             addLabel="+ Add subtasks"
             placeholder="Subtask"
             onAdd={(texts) => actions.addSubtasks(card.id, texts)}

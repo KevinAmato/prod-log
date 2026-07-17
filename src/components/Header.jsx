@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import BackupControls from './BackupControls.jsx';
 import SyncSheet from './SyncSheet.jsx';
+import AiSettingsSheet from './AiSettingsSheet.jsx';
 import { syncEnabled } from '../lib/sync.js';
+import { aiEnabled } from '../lib/ai.js';
 
 const VIEWS = [
   ['live', 'Live'],
@@ -11,16 +13,13 @@ const VIEWS = [
 ];
 
 // Compact two-row header: brand + utilities on top, the Live/Done/Deleted
-// switcher below (full-width segmented control — the primary navigation).
-export default function Header({ view, setView }) {
+// switcher below. Filtering lives in each column's funnel now — the header ⋯
+// menu keeps the board-wide bits: AI assistant, sync, hide-done, backup.
+export default function Header({ view, setView, onAiChanged }) {
   const { state, actions, theme, toggleTheme } = useStore();
   const [menu, setMenu] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
-
-  const { filterCategoryId, filterOverdue } = state.prefs;
-  const filterActive = !!filterCategoryId || filterOverdue;
-  const activeCat = state.categories.find((c) => c.id === filterCategoryId);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const counts = {
     live: state.cards.filter((c) => c.status === 'live').length,
@@ -28,94 +27,14 @@ export default function Header({ view, setView }) {
     deleted: state.cards.filter((c) => c.status === 'deleted').length,
   };
 
+  const item = 'block w-full px-3 py-2 text-left text-sm text-ink/80 hover:bg-ink/5';
+
   return (
     <header className="shrink-0 border-b border-ink/10 bg-paper/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center gap-2 px-3 pt-2.5">
         <h1 className="flex-1 text-base font-bold tracking-tight">
           ProdLog<span className="text-accent">.</span>
         </h1>
-
-        {/* Board filter: by category color and/or overdue */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setFilterOpen((v) => !v)}
-            title="Filter the board"
-            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-              filterActive
-                ? 'border-accent/40 bg-accent/10 text-accent'
-                : 'border-ink/15 text-ink/50 hover:bg-ink/5'
-            }`}
-          >
-            {activeCat && (
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: activeCat.color }} />
-            )}
-            Filter{filterOverdue ? ' · overdue' : ''}
-          </button>
-          {filterOpen && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setFilterOpen(false)} />
-              <div className="absolute right-0 top-8 z-40 w-56 rounded-xl border border-ink/10 bg-surface p-3 shadow-xl">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/40">
-                  Color
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-2">
-                  {state.categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      title={cat.name}
-                      onClick={() =>
-                        actions.setPref(
-                          'filterCategoryId',
-                          filterCategoryId === cat.id ? null : cat.id,
-                        )
-                      }
-                      className="h-6 w-6 rounded-full"
-                      style={{
-                        background: cat.color,
-                        outline:
-                          filterCategoryId === cat.id ? `2px solid ${cat.color}` : 'none',
-                        outlineOffset: 2,
-                        opacity: filterCategoryId && filterCategoryId !== cat.id ? 0.35 : 1,
-                      }}
-                    />
-                  ))}
-                </div>
-                <label className="mt-3 flex items-center gap-2 text-sm text-ink/80">
-                  <input
-                    type="checkbox"
-                    checked={filterOverdue}
-                    onChange={(e) => actions.setPref('filterOverdue', e.target.checked)}
-                    className="h-4 w-4 accent-[#7c3aed]"
-                  />
-                  Overdue only
-                </label>
-                <label className="mt-2 flex items-center gap-2 text-sm text-ink/80">
-                  <input
-                    type="checkbox"
-                    checked={state.prefs.hideDoneSubtasks}
-                    onChange={(e) => actions.setPref('hideDoneSubtasks', e.target.checked)}
-                    className="h-4 w-4 accent-[#7c3aed]"
-                  />
-                  Hide done subtasks
-                </label>
-                {filterActive && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      actions.setPref('filterCategoryId', null);
-                      actions.setPref('filterOverdue', false);
-                    }}
-                    className="mt-3 w-full rounded-lg border border-ink/15 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/5"
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
 
         <button
           type="button"
@@ -138,17 +57,36 @@ export default function Header({ view, setView }) {
           {menu && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
-              <div className="absolute right-0 top-8 z-40 flex w-52 flex-col overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+              <div className="absolute right-0 top-8 z-40 flex w-56 flex-col overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(false);
+                    setAiOpen(true);
+                  }}
+                  className={item}
+                >
+                  ✦ AI assistant{aiEnabled() ? ' ✓' : '…'}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setMenu(false);
                     setSyncOpen(true);
                   }}
-                  className="block w-full px-3 py-2 text-left text-sm text-ink/80 hover:bg-ink/5"
+                  className={item}
                 >
                   Sync devices{syncEnabled() ? ' ✓' : '…'}
                 </button>
+                <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-ink/80 hover:bg-ink/5">
+                  <input
+                    type="checkbox"
+                    checked={state.prefs.hideDoneSubtasks}
+                    onChange={(e) => actions.setPref('hideDoneSubtasks', e.target.checked)}
+                    className="h-4 w-4 accent-[#7c3aed]"
+                  />
+                  Hide done subtasks
+                </label>
                 <div className="my-1 h-px bg-ink/10" />
                 <BackupControls />
               </div>
@@ -181,6 +119,7 @@ export default function Header({ view, setView }) {
       </div>
 
       {syncOpen && <SyncSheet onClose={() => setSyncOpen(false)} />}
+      {aiOpen && <AiSettingsSheet onClose={() => setAiOpen(false)} onSaved={onAiChanged} />}
     </header>
   );
 }

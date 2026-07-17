@@ -72,6 +72,27 @@ at `https://prodlog-sync.amatokevinp.workers.dev`.
 - Redeploy the worker: `cd sync-worker && npx wrangler deploy` (needs
   `wrangler login`).
 
+## 4b. AI assistant (July 2026, BYOK)
+
+Menu → **AI assistant**: pick Anthropic / OpenAI / Gemini, paste your key
+(stored only in that browser, never synced), optionally any model id. A ✦
+button then floats bottom-right; it opens a chat (bottom sheet on mobile)
+with **voice input** (Web Speech API — tap the mic, speak, pause = send).
+
+Every message rebuilds a system prompt containing the live numbered board
+(tasks are `#n`, subtasks `n.m` — the numbers shown on cards), the current
+local time (for "remind me tomorrow at 9"), the action schema and guardrails.
+The model replies with JSON `{reply, actions[]}` (provider-agnostic — no
+per-provider tool-calling); `src/lib/assistant.js` resolves references
+(numbers or fuzzy titles) and executes against the store, returning ✓/✗
+receipts shown under the reply.
+
+Capabilities: create tasks (first column unless told otherwise) with
+due/category/reminders/subtasks; add subtasks; complete or delete tasks and
+subtasks; rename (only when explicitly asked); append-only notes (prefixed
+"Bot update:"); due dates; reminders; categories; per-column category/overdue
+filters. It cannot sort and cannot permanently destroy anything.
+
 ## 5. Deliberate non-features
 
 - No accounts and no sharing — single user, key-based sync only.

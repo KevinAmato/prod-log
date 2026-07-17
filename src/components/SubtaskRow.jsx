@@ -4,9 +4,10 @@ import CheckCircle from './CheckCircle.jsx';
 import ReminderSheet from './ReminderSheet.jsx';
 import { dueInfo } from '../lib/dates.js';
 
-// One subtask line: checkbox, text (+ due/reminder chips) and a ⋯ menu with
-// the same due date + reminders powers as the parent card, plus Remove.
-export default function SubtaskRow({ card, sub }) {
+// One subtask line: n.m number, checkbox, text (+ due/reminder chips) and a
+// ⋯ menu with the same due date + reminders powers as the parent card, plus
+// Remove. The n.m number is what the AI assistant references.
+export default function SubtaskRow({ card, sub, number }) {
   const { actions } = useStore();
   const [menu, setMenu] = useState(false);
   const [remindersOpen, setRemindersOpen] = useState(false);
@@ -25,6 +26,9 @@ export default function SubtaskRow({ card, sub }) {
       </div>
 
       <span className="min-w-0 flex-1 pt-1">
+        {number && (
+          <span className="mr-1 font-mono text-[10px] text-ink/30">{number}</span>
+        )}
         <span
           className={`break-words text-[13px] leading-snug ${
             sub.done ? 'text-ink/35 line-through' : 'text-ink/75'

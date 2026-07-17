@@ -115,6 +115,18 @@ export function StoreProvider({ children }) {
         }));
       },
 
+      // Per-column view filter (category color and/or overdue-only).
+      setColumnFilter(columnId, filter) {
+        setState((s) => ({
+          ...s,
+          columns: s.columns.map((c) =>
+            c.id === columnId
+              ? { ...c, filter: filter.categoryId || filter.overdue ? filter : undefined }
+              : c,
+          ),
+        }));
+      },
+
       // One-shot sort: reorders the column's live cards IN the manual order
       // (drag keeps working afterwards — sorting is an action, not a mode).
       sortColumn(columnId, mode) {
@@ -195,6 +207,76 @@ export function StoreProvider({ children }) {
 
       updateCard(id, patch) {
         setState((s) => patchCard(s, id, (c) => ({ ...c, ...patch })));
+      },
+
+      // Create one fully-specified card (used by the AI assistant so a task
+      // with note/due/category/reminders/subtasks lands in ONE commit).
+      addCardFull(columnId, data) {
+        const id = newId();
+        const now = new Date().toISOString();
+        setState((s) => ({
+          ...s,
+          cards: [
+            ...s.cards,
+            {
+              id,
+              columnId,
+              title: data.title,
+              note: data.note || '',
+              status: 'live',
+              createdAt: now,
+              updatedAt: now,
+              doneAt: null,
+              deletedAt: null,
+              dueDate: data.dueDate || null,
+              categoryId: data.categoryId || null,
+              collapsed: false,
+              reminders: data.reminders || [],
+              subtasks: data.subtasks || [],
+            },
+          ],
+        }));
+        return id;
+      },
+
+      // Complete a card AND all its subtasks in one commit (used by the AI
+      // assistant — atomic against current state, single undo step).
+      completeCard(id) {
+        setState((s) =>
+          patchCard(s, id, (c) => ({
+            ...c,
+            subtasks: c.subtasks.map((t) => ({ ...t, done: true })),
+            status: 'done',
+            doneAt: new Date().toISOString(),
+          })),
+        );
+      },
+
+      // Append-only note edit reading CURRENT state (safe in multi-action
+      // assistant batches where the same card is touched twice).
+      appendNote(id, text) {
+        setState((s) =>
+          patchCard(s, id, (c) => ({
+            ...c,
+            note: c.note ? `${c.note}\n\n${text}` : text,
+          })),
+        );
+      },
+
+      // Append a reminder to a card or one of its subtasks, atomically.
+      addReminderTo(cardId, subId, reminder) {
+        setState((s) =>
+          patchCard(s, cardId, (c) =>
+            subId
+              ? {
+                  ...c,
+                  subtasks: c.subtasks.map((t) =>
+                    t.id === subId ? { ...t, reminders: [...(t.reminders || []), reminder] } : t,
+                  ),
+                }
+              : { ...c, reminders: [...(c.reminders || []), reminder] },
+          ),
+        );
       },
 
       // Guarded here too: a card is only done when every subtask is done.

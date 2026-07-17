@@ -1,29 +1,32 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
 import { useStore } from '../store/StoreContext.jsx';
 import Column from './Column.jsx';
 import { isOverdue } from '../lib/dates.js';
+import { numberCards } from '../lib/assistant.js';
 
 // The live board. Mobile-first: columns are near-full-width and snap-scroll
-// horizontally (swipe between Short term / Long term); on desktop they simply
-// sit side by side. A ghost column at the end adds new columns.
-// Drag & drop is @hello-pangea/dnd (react-beautiful-dnd fork): battle-tested
-// touch handling (long-press to lift, scroll otherwise), auto-scroll of both
-// the horizontal board and column lists, keyboard dragging for free.
-// Board-level filters (category color / overdue) come from prefs — set via the
-// funnel button in the header.
+// horizontally; desktop side by side. Drag & drop is @hello-pangea/dnd.
+// Filters are PER COLUMN (funnel in each column header); task numbers are the
+// global top-to-bottom order over unfiltered live cards, so they stay stable
+// while filtering and are what the AI assistant references.
 export default function Board() {
   const { state, actions } = useStore();
   const [addingCol, setAddingCol] = useState(false);
   const [dragging, setDragging] = useState(false);
 
-  const { filterCategoryId, filterOverdue } = state.prefs;
-  const liveCards = state.cards.filter(
-    (c) =>
-      c.status === 'live' &&
-      (!filterCategoryId || c.categoryId === filterCategoryId) &&
-      (!filterOverdue || isOverdue(c.dueDate)),
-  );
+  const numbers = useMemo(() => numberCards(state), [state]);
+
+  const visibleIn = (col) => {
+    const f = col.filter || {};
+    return state.cards.filter(
+      (c) =>
+        c.status === 'live' &&
+        c.columnId === col.id &&
+        (!f.categoryId || c.categoryId === f.categoryId) &&
+        (!f.overdue || isOverdue(c.dueDate)),
+    );
+  };
 
   const onDragEnd = ({ draggableId, source, destination }) => {
     setDragging(false);
@@ -34,9 +37,9 @@ export default function Board() {
     // The visible list may be filtered, so map the visible destination index
     // to a slot among ALL live cards of the destination column (moveCard
     // indexes exclude the moving card).
-    const visible = liveCards.filter(
-      (c) => c.columnId === destination.droppableId && c.id !== draggableId,
-    );
+    const destCol = state.columns.find((c) => c.id === destination.droppableId);
+    if (!destCol) return;
+    const visible = visibleIn(destCol).filter((c) => c.id !== draggableId);
     const anchor = visible[destination.index];
     let slot = Infinity;
     if (anchor) {
@@ -76,7 +79,8 @@ export default function Board() {
             column={col}
             columns={state.columns}
             canDelete={state.columns.length > 1}
-            cards={liveCards.filter((c) => c.columnId === col.id)}
+            cards={visibleIn(col)}
+            numbers={numbers}
           />
         ))}
 

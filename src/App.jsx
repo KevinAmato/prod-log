@@ -6,10 +6,15 @@ import Board from './components/Board.jsx';
 import ArchiveList from './components/ArchiveList.jsx';
 import ReminderEngine from './components/ReminderEngine.jsx';
 import SyncEngine from './components/SyncEngine.jsx';
+import AiChat from './components/AiChat.jsx';
+import { aiEnabled } from './lib/ai.js';
 
 export default function App() {
   const { storageFull, undo, redo } = useStore();
   const [view, setView] = useState('live'); // 'live' | 'done' | 'deleted'
+  const [chatOpen, setChatOpen] = useState(false);
+  // Bumped by Header when AI settings are saved, so the FAB appears instantly.
+  const [aiRev, setAiRev] = useState(0);
 
   // Global undo/redo — guarded so typing in an input never triggers it.
   useEffect(() => {
@@ -36,7 +41,7 @@ export default function App() {
       <ReminderEngine />
       <SyncEngine />
       <div className="flex h-[100dvh] flex-col">
-        <Header view={view} setView={setView} />
+        <Header view={view} setView={setView} onAiChanged={() => setAiRev((r) => r + 1)} />
 
         {storageFull && (
           <div className="shrink-0 bg-amber-500/15 px-4 py-2 text-center text-xs text-amber-800">
@@ -49,6 +54,25 @@ export default function App() {
           {view === 'live' ? <Board /> : <ArchiveList mode={view} />}
         </main>
       </div>
+
+      {/* AI assistant — floating button, fixed bottom-right, only with a key */}
+      {aiEnabled() && !chatOpen && (
+        <button
+          key={aiRev}
+          type="button"
+          title="AI assistant"
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-5 right-4 z-40 flex h-13 w-13 items-center justify-center rounded-full bg-accent text-xl text-white shadow-lg transition-transform hover:scale-105"
+          style={{
+            width: 52,
+            height: 52,
+            marginBottom: 'env(safe-area-inset-bottom)',
+          }}
+        >
+          ✦
+        </button>
+      )}
+      {chatOpen && <AiChat onClose={() => setChatOpen(false)} />}
     </SnackProvider>
   );
 }
