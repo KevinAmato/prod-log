@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Droppable } from '@hello-pangea/dnd';
 import { useStore } from '../store/StoreContext.jsx';
 import BackupControls from './BackupControls.jsx';
-import SyncSheet from './SyncSheet.jsx';
+import WorkspacesSheet from './WorkspacesSheet.jsx';
 import AiSettingsSheet from './AiSettingsSheet.jsx';
 import CleanupSheet from './CleanupSheet.jsx';
-import { syncEnabled } from '../lib/sync.js';
 import { aiEnabled } from '../lib/ai.js';
+import { getRegistry } from '../lib/workspaces.js';
 import { queryTerms, cardMatches } from '../lib/search.js';
 
 const VIEWS = [
@@ -50,7 +50,7 @@ export default function Header({
 }) {
   const { state, actions, theme, toggleTheme } = useStore();
   const [menu, setMenu] = useState(false);
-  const [syncOpen, setSyncOpen] = useState(false);
+  const [wsOpen, setWsOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -76,6 +76,12 @@ export default function Header({
     setQuery('');
     setSearchOpen(false);
   };
+
+  // null on the home workspace → brand shows "Pino."; otherwise the name.
+  const reg = getRegistry();
+  const activeWs = reg.list.find((w) => w.id === reg.active);
+  const wsName = activeWs && activeWs.id !== 'ws-home' ? activeWs.name : null;
+  const sharing = !!activeWs?.syncKey;
 
   const item = 'block w-full px-3 py-2 text-left text-sm text-ink/80 hover:bg-ink/5';
 
@@ -114,9 +120,23 @@ export default function Header({
           </div>
         ) : (
           <>
-            <h1 className="flex-1 text-base font-bold tracking-tight">
-              Pino<span className="text-accent">.</span>
-            </h1>
+            {/* Brand doubles as the workspace switcher. On the home workspace
+                it reads "Pino." as ever; on any other, the workspace's name —
+                so which board you're in is always one glance away. */}
+            <div className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => setWsOpen(true)}
+                title="Workspaces"
+                className="-mx-1 flex max-w-full items-center gap-1 rounded-lg px-1 py-0.5 hover:bg-ink/5"
+              >
+                <h1 className="truncate text-base font-bold tracking-tight">
+                  {wsName ?? 'Pino'}
+                  <span className="text-accent">.</span>
+                </h1>
+                <span className="shrink-0 text-[9px] text-ink/40">▼</span>
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
@@ -185,11 +205,11 @@ export default function Header({
                   type="button"
                   onClick={() => {
                     setMenu(false);
-                    setSyncOpen(true);
+                    setWsOpen(true);
                   }}
                   className={item}
                 >
-                  Sync devices{syncEnabled() ? ' ✓' : '…'}
+                  👥 Workspaces &amp; sharing{sharing ? ' ✓' : '…'}
                 </button>
                 <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-ink/80 hover:bg-ink/5">
                   <input
@@ -258,7 +278,7 @@ export default function Header({
         </div>
       </div>
 
-      {syncOpen && <SyncSheet onClose={() => setSyncOpen(false)} />}
+      {wsOpen && <WorkspacesSheet onClose={() => setWsOpen(false)} />}
       {aiOpen && <AiSettingsSheet onClose={() => setAiOpen(false)} onSaved={onAiChanged} />}
       {cleanupOpen && (
         <CleanupSheet onClose={() => setCleanupOpen(false)} onStart={onStartCleanup} />

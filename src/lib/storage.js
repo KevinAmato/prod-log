@@ -1,10 +1,14 @@
 // Single-key, single-blob localStorage persistence. One JSON object under one
 // key keeps writes atomic and the whole data model trivially exportable.
 //
-// NOTE: the key is new (prodlog_board_v1) — the old Diligence blob, if present
-// in this browser, is left untouched under its own key.
+// One blob PER WORKSPACE: the key comes from the active workspace (stable for
+// the whole session — switching workspaces reloads the page). The home
+// workspace keeps the pre-workspace key (prodlog_board_v1) so upgrades are
+// seamless; others use prodlog_board_v1:<wsId>.
 
-const STORAGE_KEY = 'prodlog_board_v1';
+import { activeWorkspace, boardStorageKey } from './workspaces.js';
+
+const STORAGE_KEY = boardStorageKey(activeWorkspace().id);
 
 // Color-code categories: fixed palette, user-renamable labels.
 export const DEFAULT_CATEGORIES = [

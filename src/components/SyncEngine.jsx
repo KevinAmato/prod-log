@@ -19,7 +19,13 @@ export default function SyncEngine() {
     const result = await syncNow(stateRef.current, (merged) => actions.replaceState(merged));
     if (result.status === 'ok') {
       errShown.current = false;
-      if (result.pulled) snack('Synced changes from your other device');
+      if (result.pulled) snack('Synced changes from this workspace');
+    } else if (result.status === 'limited' && !errShown.current) {
+      errShown.current = true;
+      snack('Daily sync limit reached — changes stay on this device and sync tomorrow');
+    } else if (result.status === 'toobig' && !errShown.current) {
+      errShown.current = true;
+      snack('Board too large to sync — clear old Done/Deleted tasks');
     } else if (result.status === 'error' && !errShown.current) {
       errShown.current = true;
       snack('Sync failed — working locally, will retry');

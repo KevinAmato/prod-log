@@ -3,43 +3,29 @@
 // local state (lib/merge.js), applies the result, and pushes it back with
 // optimistic concurrency (baseRev; one merge-and-retry on 409).
 //
-// The sync key is the credential AND the identity: enter the same key on
-// another device and it converges on the same board. It lives in its own
-// localStorage entry — never inside the synced blob itself.
+// The sync key is the credential AND the identity: every device (and person)
+// holding the same key converges on the same board. Since workspaces, the key
+// lives on the active workspace's registry entry (lib/workspaces.js) — still
+// never inside the synced blob itself.
 
 import { mergeStates, stateSignature } from './merge.js';
+import { activeWorkspace, updateWorkspace } from './workspaces.js';
 
 // The deployed worker's public URL (sync-worker/, `wrangler deploy`).
 export const DEFAULT_ENDPOINT = 'https://prodlog-sync.amatokevinp.workers.dev';
 
-const CFG_KEY = 'prodlog_sync_v1';
-
 export function getSyncConfig() {
-  try {
-    return JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
-  } catch {
-    return null;
-  }
+  const ws = activeWorkspace();
+  return ws?.syncKey ? { key: ws.syncKey, lastSyncAt: ws.lastSyncAt || null } : null;
 }
 
-export function saveSyncConfig(cfg) {
-  try {
-    localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-  } catch {
-    /* ignore */
-  }
-}
-
-export function clearSyncConfig() {
-  try {
-    localStorage.removeItem(CFG_KEY);
-  } catch {
-    /* ignore */
-  }
+function stampSynced() {
+  const ws = activeWorkspace();
+  if (ws) updateWorkspace(ws.id, { lastSyncAt: new Date().toISOString() });
 }
 
 export function syncEnabled() {
-  return !!getSyncConfig()?.key;
+  return !!activeWorkspace()?.syncKey;
 }
 
 // 192 bits of randomness, base64url, readable prefix for recognisability.
@@ -63,7 +49,7 @@ export async function syncNow(state, apply) {
   if (inFlight) return { status: 'busy' };
   inFlight = true;
   try {
-    const endpoint = `${(cfg.endpoint || DEFAULT_ENDPOINT).replace(/\/$/, '')}/state`;
+    const endpoint = `${DEFAULT_ENDPOINT}/state`;
     const headers = { 'X-Sync-Key': cfg.key };
 
     const pull = await fetch(endpoint, { headers });
@@ -76,7 +62,7 @@ export async function syncNow(state, apply) {
 
     // Nothing new to upload? (fresh server needs the first push even if equal)
     if (remote.blob && stateSignature(merged) === stateSignature(remote.blob)) {
-      saveSyncConfig({ ...cfg, lastSyncAt: new Date().toISOString() });
+      stampSynced();
       return { status: 'ok', pulled: pulledChanges, pushed: false };
     }
 
@@ -88,9 +74,13 @@ export async function syncNow(state, apply) {
       if (stateSignature(merged) !== stateSignature(state)) apply(merged);
       push = await doPut(endpoint, headers, current.rev, merged);
     }
+    // Free-tier guards, distinct from generic failure so the UI can explain:
+    // 429 = this board hit its daily write quota; 413 = board blob too big.
+    if (push.status === 429) return { status: 'limited', pulled: pulledChanges };
+    if (push.status === 413) return { status: 'toobig', pulled: pulledChanges };
     if (!push.ok) return { status: 'error', detail: `push ${push.status}` };
 
-    saveSyncConfig({ ...cfg, lastSyncAt: new Date().toISOString() });
+    stampSynced();
     return { status: 'ok', pulled: pulledChanges, pushed: true };
   } catch (err) {
     return { status: 'error', detail: err.message };

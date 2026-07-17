@@ -23,6 +23,13 @@ const ALLOWED_ORIGINS = [
 
 const MAX_BLOB_BYTES = 400_000; // board blob is ~10-100 KB; hard stop well above
 
+// Free-tier guard: Cloudflare KV allows 1,000 writes/day across the WHOLE
+// namespace, shared by every board. 250/board keeps a few active shared
+// workspaces comfortably inside it; the counter piggybacks on the state
+// record itself so enforcing it costs zero extra KV operations. The client
+// keeps working locally on 429 and retries tomorrow.
+const MAX_WRITES_PER_DAY = 250;
+
 function corsHeaders(req) {
   const origin = req.headers.get('Origin') || '';
   return {
@@ -91,10 +98,17 @@ export default {
         );
       }
 
+      const today = new Date().toISOString().slice(0, 10);
+      const writesToday = stored?.writes?.day === today ? stored.writes.n : 0;
+      if (writesToday >= MAX_WRITES_PER_DAY) {
+        return json({ error: 'daily write limit reached — try again tomorrow' }, 429, cors);
+      }
+
       const next = {
         rev: currentRev + 1,
         updatedAt: new Date().toISOString(),
         blob: body.blob,
+        writes: { day: today, n: writesToday + 1 },
       };
       await env.STATE.put(kvKey, JSON.stringify(next));
       return json({ rev: next.rev }, 200, cors);

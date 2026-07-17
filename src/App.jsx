@@ -15,6 +15,13 @@ import ShareSheet from './components/ShareSheet.jsx';
 import { aiEnabled } from './lib/ai.js';
 import { isOverdue } from './lib/dates.js';
 import { queryTerms, cardMatches } from './lib/search.js';
+import {
+  parseJoinFragment,
+  clearJoinFragment,
+  findBySyncKey,
+  addWorkspace,
+  setActiveWorkspace,
+} from './lib/workspaces.js';
 
 // SnackProvider has to be an ANCESTOR of anything calling useSnack(), and the
 // drag handler below needs the snack — so the DragDropContext + its state
@@ -36,6 +43,8 @@ function Pino() {
   const [dragging, setDragging] = useState(false);
   // null = closed; else the (editable) text to capture
   const [shareText, setShareText] = useState(null);
+  // Invite-link intake: { key, name } while the join confirm is showing.
+  const [joinInfo, setJoinInfo] = useState(() => parseJoinFragment());
   // null = closed; else { categoryIds: string[]|null, scheduleIds: string[] }
   const [cleanupScope, setCleanupScope] = useState(null);
   // Bumped by Header when AI settings are saved, so the FAB appears instantly.
@@ -221,6 +230,53 @@ function Pino() {
       )}
       {shareText !== null && (
         <ShareSheet initialText={shareText} onClose={() => setShareText(null)} />
+      )}
+
+      {/* Invite-link confirm. Deliberately a hard gate: a tapped link should
+          never silently join a shared board. Accepting adds the workspace and
+          reloads into it; the fragment (which carries the key) is cleared
+          either way so history/refresh can't re-trigger it. */}
+      {joinInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-full max-w-sm rounded-2xl border border-ink/10 bg-paper p-4 shadow-2xl">
+            <h3 className="text-sm font-semibold">Join “{joinInfo.name}”?</h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink/60">
+              You've opened an invite link to a shared workspace. Everyone in it can
+              see and edit its tasks — including ones you add. Your other workspaces
+              stay private to you.
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  clearJoinFragment();
+                  setJoinInfo(null);
+                }}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-ink/60 hover:bg-ink/5"
+              >
+                Not now
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { key, name } = joinInfo;
+                  clearJoinFragment();
+                  const existing = findBySyncKey(key);
+                  if (existing) setActiveWorkspace(existing.id);
+                  else if (!addWorkspace(name, key)) {
+                    setJoinInfo(null);
+                    return; // workspace cap hit — stay put
+                  }
+                  window.location.reload();
+                }}
+                className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-ink/90"
+              >
+                Join workspace
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
