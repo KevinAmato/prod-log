@@ -10,6 +10,8 @@
 
 import { newId } from './storage.js';
 import { toLocalInput } from './reminders.js';
+import { chat, extractJson, getAiSettings, activeModel, describeError } from './ai.js';
+import { logAiExchange } from './aiLog.js';
 
 // ── Numbering ────────────────────────────────────────────────────────────
 // Global top-to-bottom order: columns left→right, live cards top→bottom.
@@ -95,6 +97,50 @@ export function buildArchiveSnapshot(state, boards = ['done', 'deleted']) {
   if (boards.includes('done')) out.done = pick('done', 'doneAt');
   if (boards.includes('deleted')) out.deleted = pick('deleted', 'deletedAt');
   return out;
+}
+
+// ── One full assistant exchange ──────────────────────────────────────────
+// Shared by the chat sheet AND the quick-voice bubble so both behave
+// identically: fresh system prompt + snapshot, the fetch_archive second
+// round when requested, action execution, and debug logging (success and
+// error). Throws on provider errors — callers render describeError(err).
+export async function runAssistant({ state, actions, history }) {
+  const settings = getAiSettings();
+  const meta = {
+    input: history[history.length - 1]?.content || '',
+    provider: settings.provider,
+    model: activeModel(settings),
+  };
+  try {
+    const system = buildSystemPrompt(state);
+    const snapshot = buildSnapshot(state);
+    let rawReply = await chat(settings, system, history);
+    let parsed = extractJson(rawReply);
+
+    const fetchReq = (parsed?.actions || []).find((a) => a?.type === 'fetch_archive');
+    if (fetchReq) {
+      const boards = Array.isArray(fetchReq.boards) ? fetchReq.boards : ['done', 'deleted'];
+      const archive = buildArchiveSnapshot(state, boards);
+      rawReply = await chat(settings, system, [
+        ...history,
+        { role: 'assistant', content: rawReply },
+        {
+          role: 'user',
+          content: `SYSTEM: Archive data you requested: ${JSON.stringify(archive)}\nNow answer the user's request normally. Do not use fetch_archive again.`,
+        },
+      ]);
+      parsed = extractJson(rawReply);
+    }
+
+    const reply = parsed?.reply || rawReply || '…';
+    const toRun = (parsed?.actions || []).filter((a) => a?.type !== 'fetch_archive');
+    const receipts = toRun.length ? executeActions(toRun, snapshot, state, actions) : [];
+    logAiExchange({ ...meta, rawReply, receipts, archiveFetched: !!fetchReq });
+    return { reply, receipts };
+  } catch (err) {
+    logAiExchange({ ...meta, error: describeError(err) });
+    throw err;
+  }
 }
 
 // ── System prompt ────────────────────────────────────────────────────────

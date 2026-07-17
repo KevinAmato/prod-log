@@ -1,14 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store/StoreContext.jsx';
-import { chat, extractJson, describeError, getAiSettings, activeModel } from '../lib/ai.js';
-import {
-  buildSystemPrompt,
-  buildSnapshot,
-  buildArchiveSnapshot,
-  executeActions,
-} from '../lib/assistant.js';
-import { logAiExchange } from '../lib/aiLog.js';
+import { describeError, getAiSettings, activeModel } from '../lib/ai.js';
+import { runAssistant } from '../lib/assistant.js';
 import useSpeech from '../lib/useSpeech.js';
 
 // The assistant chat. Docked to the BOTTOM THIRD of the screen (not full
@@ -42,11 +36,7 @@ export default function AiChat({ onClose }) {
     setBusy(true);
     const history = [...messages, { role: 'user', content: text }];
     setMessages(history);
-    const meta = { input: text, provider: settings.provider, model: activeModel(settings) };
     try {
-      const current = stateRef.current;
-      const system = buildSystemPrompt(current);
-      const snapshot = buildSnapshot(current);
       const forModel = history.slice(-10).map((m) => ({
         role: m.role,
         content:
@@ -54,35 +44,14 @@ export default function AiChat({ onClose }) {
             ? `${m.content}\n(did: ${m.receipts.join('; ')})`
             : m.content,
       }));
-      let rawReply = await chat(settings, system, forModel);
-      let parsed = extractJson(rawReply);
-
-      // Archive tool loop: if the model asks for the Done/Deleted boards,
-      // hand it the data and let it answer in a second round (max one).
-      const fetchReq = (parsed?.actions || []).find((a) => a?.type === 'fetch_archive');
-      if (fetchReq) {
-        const boards = Array.isArray(fetchReq.boards) ? fetchReq.boards : ['done', 'deleted'];
-        const archive = buildArchiveSnapshot(current, boards);
-        rawReply = await chat(settings, system, [
-          ...forModel,
-          { role: 'assistant', content: rawReply },
-          {
-            role: 'user',
-            content: `SYSTEM: Archive data you requested: ${JSON.stringify(archive)}\nNow answer the user's request normally. Do not use fetch_archive again.`,
-          },
-        ]);
-        parsed = extractJson(rawReply);
-      }
-
-      const reply = parsed?.reply || rawReply || '…';
-      const toRun = (parsed?.actions || []).filter((a) => a?.type !== 'fetch_archive');
-      const receipts = toRun.length ? executeActions(toRun, snapshot, current, actions) : [];
+      const { reply, receipts } = await runAssistant({
+        state: stateRef.current,
+        actions,
+        history: forModel,
+      });
       setMessages((ms) => [...ms, { role: 'assistant', content: reply, receipts }]);
-      logAiExchange({ ...meta, rawReply, receipts, archiveFetched: !!fetchReq });
     } catch (err) {
-      const msg = describeError(err);
-      setMessages((ms) => [...ms, { role: 'assistant', content: msg, error: true }]);
-      logAiExchange({ ...meta, error: msg });
+      setMessages((ms) => [...ms, { role: 'assistant', content: describeError(err), error: true }]);
     } finally {
       setBusy(false);
     }

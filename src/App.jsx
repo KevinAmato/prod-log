@@ -7,6 +7,7 @@ import ArchiveList from './components/ArchiveList.jsx';
 import ReminderEngine from './components/ReminderEngine.jsx';
 import SyncEngine from './components/SyncEngine.jsx';
 import AiChat from './components/AiChat.jsx';
+import QuickVoice from './components/QuickVoice.jsx';
 import CleanupBanner from './components/CleanupBanner.jsx';
 import CleanupMode from './components/CleanupMode.jsx';
 import { aiEnabled } from './lib/ai.js';
@@ -68,22 +69,24 @@ export default function App() {
         </main>
       </div>
 
-      {/* AI assistant — floating button, fixed bottom-right, only with a key */}
+      {/* AI assistant — chat FAB with the voice FAB underneath, only with a key */}
       {aiEnabled() && !chatOpen && (
-        <button
+        <div
           key={aiRev}
-          type="button"
-          title="AI assistant"
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-5 right-4 z-40 flex h-13 w-13 items-center justify-center rounded-full bg-accent text-xl text-white shadow-lg transition-transform hover:scale-105"
-          style={{
-            width: 52,
-            height: 52,
-            marginBottom: 'env(safe-area-inset-bottom)',
-          }}
+          className="fixed bottom-5 right-4 z-40 flex flex-col items-center gap-3"
+          style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
         >
-          ✦
-        </button>
+          <button
+            type="button"
+            title="AI assistant"
+            onClick={() => setChatOpen(true)}
+            className="flex items-center justify-center rounded-full bg-accent text-xl text-white shadow-lg transition-transform hover:scale-105"
+            style={{ width: 52, height: 52 }}
+          >
+            ✦
+          </button>
+          <QuickVoice />
+        </div>
       )}
       {chatOpen && <AiChat onClose={() => setChatOpen(false)} />}
       {cleanupScope && (
