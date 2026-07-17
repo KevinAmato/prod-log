@@ -40,6 +40,8 @@ export const emptyState = () => ({
   // Recurring cleanup reviews (Menu → Cleanup schedule). Several can coexist,
   // each optionally scoped to categories. Syncs like the rest.
   cleanups: [],
+  // Marks the one-time reorder below as already applied (see orderArchiveOnce).
+  archiveOrdered: true,
   // Sync merge metadata: lastModified stamps every commit; tombstones record
   // permanent deletions so another device's copy can't resurrect them.
   lastModified: null,
@@ -64,6 +66,20 @@ function normalizeCleanups(parsed) {
     ];
   }
   return [];
+}
+
+// The Done/Deleted boards used to be timestamp-sorted at render time; they now
+// render in array order so their rows can be drag-reordered. Blobs written
+// before that change get their archived cards ordered newest-first ONCE, so an
+// existing archive doesn't reshuffle on upgrade. Archived cards sit at the
+// front (that's where new ones are hoisted); live order is untouched.
+function orderArchiveOnce(parsed, cards) {
+  if (parsed.archiveOrdered) return cards;
+  const at = (c) => (c.status === 'done' ? c.doneAt : c.deletedAt) || '';
+  return [
+    ...cards.filter((c) => c.status !== 'live').sort((a, b) => at(b).localeCompare(at(a))),
+    ...cards.filter((c) => c.status === 'live'),
+  ];
 }
 
 // Older blobs predate dueDate/reminders/categoryId/collapsed/updatedAt —
@@ -93,7 +109,8 @@ export function loadState() {
       columns: (parsed.columns.length ? parsed.columns : base.columns).map(
         ({ sort, ...c }) => c, // `sort` was a short-lived display mode — now inert
       ),
-      cards: parsed.cards.map(normalizeCard),
+      cards: orderArchiveOnce(parsed, parsed.cards.map(normalizeCard)),
+      archiveOrdered: true,
       categories:
         Array.isArray(parsed.categories) && parsed.categories.length
           ? parsed.categories
@@ -142,7 +159,8 @@ export function parseImportedBlob(text) {
     columns: (parsed.columns.length ? parsed.columns : base.columns).map(
       ({ sort, ...c }) => c,
     ),
-    cards: parsed.cards.map(normalizeCard),
+    cards: orderArchiveOnce(parsed, parsed.cards.map(normalizeCard)),
+    archiveOrdered: true,
     categories:
       Array.isArray(parsed.categories) && parsed.categories.length
         ? parsed.categories

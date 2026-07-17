@@ -95,6 +95,16 @@ export function StoreProvider({ children }) {
       ),
     });
 
+    // The Done/Deleted boards render in array order (so they can be
+    // drag-reordered like the live board), so a card landing there is hoisted
+    // to the front — newest first by default. Harmless for live ordering: the
+    // card isn't live anymore, and on restore it simply reappears on top.
+    const hoist = (s, id) => {
+      const card = s.cards.find((c) => c.id === id);
+      if (!card) return s;
+      return { ...s, cards: [card, ...s.cards.filter((c) => c.id !== id)] };
+    };
+
     return {
       // ── Columns ───────────────────────────────────────────────────────
       addColumn(name) {
@@ -243,12 +253,15 @@ export function StoreProvider({ children }) {
       // assistant — atomic against current state, single undo step).
       completeCard(id) {
         setState((s) =>
-          patchCard(s, id, (c) => ({
-            ...c,
-            subtasks: c.subtasks.map((t) => ({ ...t, done: true })),
-            status: 'done',
-            doneAt: new Date().toISOString(),
-          })),
+          hoist(
+            patchCard(s, id, (c) => ({
+              ...c,
+              subtasks: c.subtasks.map((t) => ({ ...t, done: true })),
+              status: 'done',
+              doneAt: new Date().toISOString(),
+            })),
+            id,
+          ),
         );
       },
 
@@ -304,21 +317,27 @@ export function StoreProvider({ children }) {
         setState((s) => {
           const card = s.cards.find((c) => c.id === id);
           if (!card || card.subtasks.some((t) => !t.done)) return s;
-          return patchCard(s, id, (c) => ({
-            ...c,
-            status: 'done',
-            doneAt: new Date().toISOString(),
-          }));
+          return hoist(
+            patchCard(s, id, (c) => ({
+              ...c,
+              status: 'done',
+              doneAt: new Date().toISOString(),
+            })),
+            id,
+          );
         });
       },
 
       deleteCard(id) {
         setState((s) =>
-          patchCard(s, id, (c) => ({
-            ...c,
-            status: 'deleted',
-            deletedAt: new Date().toISOString(),
-          })),
+          hoist(
+            patchCard(s, id, (c) => ({
+              ...c,
+              status: 'deleted',
+              deletedAt: new Date().toISOString(),
+            })),
+            id,
+          ),
         );
       },
 
@@ -373,6 +392,26 @@ export function StoreProvider({ children }) {
           }
           const moved = { ...card, columnId, updatedAt: new Date().toISOString() };
           return { ...s, cards: [...rest.slice(0, gi), moved, ...rest.slice(gi)] };
+        });
+      },
+
+      // Same idea for the Done/Deleted boards: `index` is the target slot
+      // among the cards sharing this card's status.
+      moveArchiveCard(id, index) {
+        setState((s) => {
+          const card = s.cards.find((c) => c.id === id);
+          if (!card) return s;
+          const rest = s.cards.filter((c) => c.id !== id);
+          const peers = rest.filter((c) => c.status === card.status);
+          const anchor = peers[index];
+          let gi;
+          if (anchor) {
+            gi = rest.indexOf(anchor);
+          } else {
+            const last = peers[peers.length - 1];
+            gi = last ? rest.indexOf(last) + 1 : rest.length;
+          }
+          return { ...s, cards: [...rest.slice(0, gi), card, ...rest.slice(gi)] };
         });
       },
 

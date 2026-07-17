@@ -139,29 +139,34 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
               <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
               <div className={`${pop} p-3`}>
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/40">
-                  Color
+                  Category
                 </p>
-                <div className="mt-1.5 flex flex-wrap gap-2">
-                  {state.categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      title={cat.name}
-                      onClick={() =>
-                        actions.setColumnFilter(column.id, {
-                          categoryId: filter.categoryId === cat.id ? null : cat.id,
-                          overdue: !!filter.overdue,
-                        })
-                      }
-                      className="h-6 w-6 rounded-full"
-                      style={{
-                        background: cat.color,
-                        outline: filter.categoryId === cat.id ? `2px solid ${cat.color}` : 'none',
-                        outlineOffset: 2,
-                        opacity: filter.categoryId && filter.categoryId !== cat.id ? 0.35 : 1,
-                      }}
-                    />
-                  ))}
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {state.categories.map((cat) => {
+                    const on = filter.categoryId === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() =>
+                          actions.setColumnFilter(column.id, {
+                            categoryId: on ? null : cat.id,
+                            overdue: !!filter.overdue,
+                          })
+                        }
+                        className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                          on ? 'text-ink/85' : 'border-ink/10 text-ink/60 hover:bg-ink/5'
+                        }`}
+                        style={on ? { borderColor: cat.color, background: `${cat.color}1a` } : {}}
+                      >
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ background: cat.color }}
+                        />
+                        {cat.name}
+                      </button>
+                    );
+                  })}
                 </div>
                 <label className="mt-3 flex items-center gap-2 text-sm text-ink/80">
                   <input
