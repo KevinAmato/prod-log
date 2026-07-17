@@ -33,7 +33,7 @@ export default function ReminderSheet({ title, reminders, onSave, onClose }) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/40" onClick={save} />
+      <div className="absolute inset-0 cursor-pointer bg-black/40" onClick={save} />
       <div
         className="relative w-full max-w-md rounded-t-2xl border border-ink/10 bg-paper p-4 shadow-2xl sm:rounded-2xl"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}

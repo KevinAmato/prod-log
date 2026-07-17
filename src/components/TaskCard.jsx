@@ -208,7 +208,7 @@ export default function TaskCard({
           </button>
           {menu && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
+              <div className="fixed inset-0 z-30 cursor-pointer" onClick={() => setMenu(false)} />
               <div className="absolute right-0 top-7 z-40 w-56 overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
                 {/* Due date — native picker inline */}
                 <div className="flex items-center gap-2 px-3 py-2">

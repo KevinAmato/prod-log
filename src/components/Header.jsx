@@ -168,7 +168,7 @@ export default function Header({
           </button>
           {menu && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
+              <div className="fixed inset-0 z-30 cursor-pointer" onClick={() => setMenu(false)} />
               <div className="absolute right-0 top-8 z-40 flex w-56 flex-col overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
                 <button
                   type="button"

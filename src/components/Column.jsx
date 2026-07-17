@@ -109,7 +109,7 @@ export default function Column({ column, cards, columns, canDelete, numbers, sea
           </button>
           {menu === 'sort' && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
+              <div className="fixed inset-0 z-30 cursor-pointer" onClick={() => setMenu(false)} />
               <div className={pop}>
                 {SORT_ACTIONS.map(([key, label]) => (
                   <button
@@ -144,7 +144,7 @@ export default function Column({ column, cards, columns, canDelete, numbers, sea
           </button>
           {menu === 'filter' && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
+              <div className="fixed inset-0 z-30 cursor-pointer" onClick={() => setMenu(false)} />
               <div className={`${pop} p-3`}>
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/40">
                   Category
@@ -219,7 +219,7 @@ export default function Column({ column, cards, columns, canDelete, numbers, sea
           </button>
           {menu === 'more' && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
+              <div className="fixed inset-0 z-30 cursor-pointer" onClick={() => setMenu(false)} />
               <div className={pop}>
                 <button
                   type="button"

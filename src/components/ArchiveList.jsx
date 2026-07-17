@@ -183,7 +183,7 @@ function ArchiveRow({ provided, isDragging, card, mode, onRestore, onToDeleted, 
           </button>
           {menu && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
+              <div className="fixed inset-0 z-30 cursor-pointer" onClick={() => setMenu(false)} />
               <div className="absolute right-0 top-7 z-40 w-48 overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
                 <button
                   type="button"

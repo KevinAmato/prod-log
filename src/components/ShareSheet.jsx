@@ -75,7 +75,7 @@ export default function ShareSheet({ initialText = '', onClose }) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 cursor-pointer bg-black/40" onClick={onClose} />
       <div
         className="relative flex max-h-[85dvh] w-full max-w-md flex-col rounded-t-2xl border border-ink/10 bg-paper p-4 shadow-2xl sm:rounded-2xl"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}

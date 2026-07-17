@@ -104,7 +104,9 @@ export default function QuickVoice() {
         createPortal(
           <>
             {/* click-away scrim: below the FABs (z-40) so the mic stays tappable */}
-            <div className="fixed inset-0 z-30" onClick={dismiss} />
+            {/* cursor-pointer is load-bearing: without it iOS Safari won't
+                fire click on a plain div, so tap-away wouldn't dismiss. */}
+            <div className="fixed inset-0 z-30 cursor-pointer" onClick={dismiss} />
             <div
               className="fixed right-4 z-50 w-[min(78vw,300px)] rounded-2xl border border-ink/10 bg-surface p-3 pr-8 shadow-2xl"
               style={{ bottom: 'calc(9.5rem + env(safe-area-inset-bottom))' }}

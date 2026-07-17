@@ -155,14 +155,20 @@ export async function runAssistant({ state, actions, undo, history }) {
     // less annoying than making the user rephrase) recovers the vast majority
     // of these; only if it STILL isn't JSON do we surface the format error.
     if (!parsed && rawReply?.trim()) {
+      // Re-anchor on the ORIGINAL request, not "please use JSON" — a bare
+      // formatting instruction gets acknowledged ("Got it, JSON only from now
+      // on", empty actions) instead of actually redone. Restating the task
+      // makes the model carry it out AND emit valid JSON.
+      const original = history[history.length - 1]?.content || 'my previous request';
       rawReply = await chat(settings, system, [
         ...history,
         { role: 'assistant', content: rawReply },
         {
           role: 'user',
           content:
-            'Reply again with ONLY the JSON object your instructions describe ' +
-            '({"reply": "...", "actions": [...]}) — no text before or after it.',
+            `That reply wasn't valid JSON, so nothing happened. Carry out my request — "${original}" — now, ` +
+            'replying with ONLY the JSON object {"reply": "...", "actions": [...]} and including the ' +
+            'actions that perform it. Output just the JSON — do not merely acknowledge this message.',
         },
       ]);
       parsed = extractJson(rawReply);

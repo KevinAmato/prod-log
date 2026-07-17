@@ -14,7 +14,7 @@ export default function CategoryPicker({ card, onClose }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
+      <div className="fixed inset-0 z-30 cursor-pointer" onClick={onClose} />
       <div className="absolute right-0 top-7 z-40 w-52 overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
         {state.categories.map((cat) => (
           <div key={cat.id} className="flex items-center gap-2 px-3 py-1">

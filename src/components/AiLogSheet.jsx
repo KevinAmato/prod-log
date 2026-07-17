@@ -16,7 +16,7 @@ export default function AiLogSheet({ onClose }) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 cursor-pointer bg-black/40" onClick={onClose} />
       <div className="relative flex h-[80dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-ink/10 bg-paper shadow-2xl sm:h-[600px] sm:rounded-2xl">
         <div className="flex shrink-0 items-center justify-between border-b border-ink/10 px-4 py-3">
           <div>
