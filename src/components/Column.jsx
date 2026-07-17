@@ -4,6 +4,7 @@ import { useStore } from '../store/StoreContext.jsx';
 import { useSnack } from './Snackbar.jsx';
 import TaskCard from './TaskCard.jsx';
 import QuickAdd from './QuickAdd.jsx';
+import { boardToText, copyText } from '../lib/exportText.js';
 
 const SORT_ACTIONS = [
   ['due', 'Sort by due date'],
@@ -222,6 +223,20 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
                   className="block w-full px-3 py-2 text-left text-sm text-ink/80 hover:bg-ink/5"
                 >
                   Rename
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await copyText(
+                      boardToText(state, { columnIds: [column.id] }),
+                    );
+                    setMenu(false);
+                    if (ok) snack('Column copied as text');
+                  }}
+                  disabled={cards.length === 0}
+                  className="block w-full px-3 py-2 text-left text-sm text-ink/80 hover:bg-ink/5 disabled:opacity-30"
+                >
+                  Copy as text
                 </button>
                 <button
                   type="button"

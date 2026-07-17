@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Voice input via the Web Speech API (free, on-device/OS-provided — great on
 // Android Chrome, present on recent iOS Safari, absent on some desktops).
-// Tap mic → listen until the user pauses → final transcript fires onFinal.
+// Two modes, chosen per `start()` call:
+//   start()      quick command — stops at the first pause, right for "mark
+//                task 3 done" (continuous:false)
+//   start(true)  dictate — keeps listening across pauses for a genuine
+//                brain-dump; only an explicit stop() ends it and fires onFinal
 export default function useSpeech({ onFinal }) {
   const Rec =
     typeof window !== 'undefined' &&
@@ -10,6 +14,7 @@ export default function useSpeech({ onFinal }) {
   const supported = !!Rec;
 
   const [listening, setListening] = useState(false);
+  const [dictating, setDictating] = useState(false);
   const [interim, setInterim] = useState('');
   const recRef = useRef(null);
   const finalRef = useRef('');
@@ -20,14 +25,15 @@ export default function useSpeech({ onFinal }) {
     recRef.current?.stop();
   }, []);
 
-  const start = useCallback(() => {
+  const start = useCallback((continuous = false) => {
     if (!Rec || recRef.current) return;
     const rec = new Rec();
     recRef.current = rec;
     finalRef.current = '';
+    setDictating(continuous);
     rec.lang = navigator.language || 'en-US';
     rec.interimResults = true;
-    rec.continuous = false; // one utterance per tap — right shape for commands
+    rec.continuous = continuous;
 
     rec.onresult = (e) => {
       let interimText = '';
@@ -41,6 +47,7 @@ export default function useSpeech({ onFinal }) {
     rec.onend = () => {
       recRef.current = null;
       setListening(false);
+      setDictating(false);
       setInterim('');
       const text = finalRef.current.trim();
       if (text) onFinalRef.current?.(text);
@@ -59,5 +66,5 @@ export default function useSpeech({ onFinal }) {
 
   useEffect(() => () => recRef.current?.abort(), []);
 
-  return { supported, listening, interim, start, stop };
+  return { supported, listening, dictating, interim, start, stop };
 }

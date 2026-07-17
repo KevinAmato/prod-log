@@ -5,21 +5,25 @@ import { describeError } from '../lib/ai.js';
 import { runAssistant } from '../lib/assistant.js';
 import useSpeech from '../lib/useSpeech.js';
 
+const DICTATE_HOLD_MS = 450;
+
 // Talk to the board WITHOUT opening the chat: a mic bubble under the ✦ FAB.
 // Tap → speak → pause: the transcript runs through the exact same assistant
 // pipeline as the chat (runAssistant), and the confirmation/error appears in
 // a comic-style speech bubble above the FABs — dismissed by its ✕ or by
-// tapping anywhere outside. Renders nothing where the Web Speech API is
-// unavailable.
+// tapping anywhere outside. Hold instead of tap to DICTATE — keeps listening
+// across pauses for a longer note; tap again to stop. Renders nothing where
+// the Web Speech API is unavailable.
 export default function QuickVoice() {
   const { state, actions, undo, canUndo } = useStore();
   const stateRef = useRef(state);
   stateRef.current = state;
+  const pressedAt = useRef(0);
 
   // bubble: null | { kind: 'listening'|'busy'|'reply'|'error', text?, receipts? }
   const [bubble, setBubble] = useState(null);
 
-  const { supported, listening, interim, start, stop } = useSpeech({
+  const { supported, listening, dictating, interim, start, stop } = useSpeech({
     onFinal: (text) => run(text),
   });
 
@@ -45,14 +49,17 @@ export default function QuickVoice() {
 
   if (!supported) return null;
 
-  const micTap = () => {
+  const micDown = () => {
+    pressedAt.current = Date.now();
+  };
+  const micUp = () => {
     if (bubble?.kind === 'busy') return;
     if (listening) {
       stop();
       return;
     }
     setBubble({ kind: 'listening' });
-    start();
+    start(Date.now() - pressedAt.current > DICTATE_HOLD_MS);
   };
 
   const dismiss = () => {
@@ -65,14 +72,23 @@ export default function QuickVoice() {
       {/* Mic FAB — same size as the ✦ bubble above it */}
       <div className="relative">
         {listening && (
-          <span className="absolute inset-0 animate-ping rounded-full bg-red-400/60" />
+          <span
+            className={`absolute inset-0 rounded-full ${dictating ? 'animate-pulse bg-accent/50' : 'animate-ping bg-red-400/60'}`}
+          />
         )}
         <button
           type="button"
-          title={listening ? 'Stop listening' : 'Speak to Pino'}
-          onClick={micTap}
+          title={
+            listening
+              ? dictating
+                ? 'Stop dictating'
+                : 'Stop listening'
+              : 'Tap: speak · Hold: dictate a longer note'
+          }
+          onPointerDown={micDown}
+          onPointerUp={micUp}
           className={`relative flex items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 active:scale-95 ${
-            listening ? 'bg-red-500' : 'bg-accent'
+            listening ? (dictating ? 'bg-accent' : 'bg-red-500') : 'bg-accent'
           }`}
           style={{ width: 52, height: 52 }}
         >
@@ -104,7 +120,9 @@ export default function QuickVoice() {
               </button>
 
               {bubble.kind === 'listening' && (
-                <p className="text-sm italic text-accent">{interim || 'Listening…'}</p>
+                <p className="text-sm italic text-accent">
+                  {interim || (dictating ? 'Dictating… tap mic to stop' : 'Listening…')}
+                </p>
               )}
               {bubble.kind === 'busy' && (
                 <p className="animate-pulse text-sm text-ink/45">

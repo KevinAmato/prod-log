@@ -5,12 +5,16 @@ import { describeError, getAiSettings, activeModel } from '../lib/ai.js';
 import { runAssistant } from '../lib/assistant.js';
 import useSpeech from '../lib/useSpeech.js';
 
+const DICTATE_HOLD_MS = 450;
+
 // The assistant chat. Docked to the BOTTOM THIRD of the screen (not full
 // height) so the board stays visible above it — the point is watching cards
 // update live as the assistant acts, not a modal that hides them. Backdrop is
 // transparent everywhere (tap it to dismiss; it never dims the board).
 // Voice is the primary input: the mic is the largest control in the bar —
-// tap, speak, pause, and the final transcript sends itself.
+// tap, speak, pause, and the final transcript sends itself. Long-press the
+// mic instead to DICTATE — it keeps listening across pauses (for a genuine
+// meeting-notes-style brain dump) until you tap it again to stop.
 export default function AiChat({ onClose }) {
   const { state, actions, undo, canUndo } = useStore();
   const [messages, setMessages] = useState([]); // {role, content, receipts?, error?}
@@ -19,15 +23,26 @@ export default function AiChat({ onClose }) {
   const stateRef = useRef(state);
   stateRef.current = state;
   const scrollRef = useRef(null);
+  const textareaRef = useRef(null);
+  const pressedAt = useRef(0);
   const settings = getAiSettings();
 
-  const { supported: voiceOk, listening, interim, start, stop } = useSpeech({
+  const { supported: voiceOk, listening, dictating, interim, start, stop } = useSpeech({
     onFinal: (text) => send(text),
   });
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, busy, listening, interim]);
+
+  // Auto-grow the textarea so a big paste is actually visible/reviewable
+  // before sending, instead of scrolling sideways inside a single line.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [input]);
 
   const send = async (raw) => {
     const text = String(raw ?? input).trim();
@@ -56,6 +71,17 @@ export default function AiChat({ onClose }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const micDown = () => {
+    pressedAt.current = Date.now();
+  };
+  const micUp = () => {
+    if (listening) {
+      stop();
+      return;
+    }
+    start(Date.now() - pressedAt.current > DICTATE_HOLD_MS);
   };
 
   return createPortal(
@@ -93,8 +119,9 @@ export default function AiChat({ onClose }) {
         <div ref={scrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-2.5">
           {messages.length === 0 && (
             <div className="px-2 py-2 text-center text-xs leading-relaxed text-ink/45">
-              “Add buy milk to short term” · “mark task 3 done” · “show only Important”
-              {voiceOk && <> — or just tap the mic.</>}
+              “Add buy milk to short term” · “mark task 3 done” · paste meeting notes to
+              extract tasks
+              {voiceOk && <> — or tap the mic (hold to dictate a longer brain dump).</>}
             </div>
           )}
           {messages.map((m, i) => (
@@ -146,7 +173,7 @@ export default function AiChat({ onClose }) {
           {listening && (
             <div className="flex justify-end">
               <div className="rounded-2xl rounded-br-md bg-accent/15 px-3 py-2 text-sm italic text-accent">
-                {interim || 'listening…'}
+                {interim || (dictating ? 'Dictating… tap mic to stop' : 'listening…')}
               </div>
             </div>
           )}
@@ -154,20 +181,33 @@ export default function AiChat({ onClose }) {
 
         {/* Input — mic is the dominant control */}
         <div
-          className="flex shrink-0 items-center gap-2.5 border-t border-ink/10 px-3 py-2"
+          className="flex shrink-0 items-end gap-2.5 border-t border-ink/10 px-3 py-2"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
         >
           {voiceOk && (
             <div className="relative shrink-0">
               {listening && (
-                <span className="absolute inset-0 animate-ping rounded-full bg-red-400/60" />
+                <span
+                  className={`absolute inset-0 rounded-full ${dictating ? 'animate-pulse bg-accent/50' : 'animate-ping bg-red-400/60'}`}
+                />
               )}
               <button
                 type="button"
-                title={listening ? 'Stop listening' : 'Speak'}
-                onClick={() => (listening ? stop() : start())}
+                title={
+                  listening
+                    ? dictating
+                      ? 'Stop dictating'
+                      : 'Stop listening'
+                    : 'Tap: speak · Hold: dictate a longer note'
+                }
+                onPointerDown={micDown}
+                onPointerUp={micUp}
                 className={`relative flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95 ${
-                  listening ? 'bg-red-500 text-white' : 'bg-accent text-white hover:brightness-110'
+                  listening
+                    ? dictating
+                      ? 'bg-accent text-white'
+                      : 'bg-red-500 text-white'
+                    : 'bg-accent text-white hover:brightness-110'
                 }`}
               >
                 <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
@@ -177,13 +217,20 @@ export default function AiChat({ onClose }) {
               </button>
             </div>
           )}
-          <input
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && send()}
-            placeholder={listening ? 'Listening…' : 'Type instead…'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            placeholder={listening ? 'Listening…' : 'Type or paste — Shift+Enter for a new line'}
             disabled={busy}
-            className="min-w-0 flex-1 rounded-full border border-ink/15 bg-surface px-3.5 py-2 text-base outline-none placeholder:text-ink/35 focus:border-accent sm:text-sm"
+            className="min-w-0 flex-1 resize-none rounded-2xl border border-ink/15 bg-surface px-3.5 py-2 text-base leading-snug outline-none placeholder:text-ink/35 focus:border-accent sm:text-sm"
           />
           <button
             type="button"
