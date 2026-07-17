@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import BackupControls from './BackupControls.jsx';
 import SyncSheet from './SyncSheet.jsx';
@@ -6,6 +6,7 @@ import AiSettingsSheet from './AiSettingsSheet.jsx';
 import CleanupSheet from './CleanupSheet.jsx';
 import { syncEnabled } from '../lib/sync.js';
 import { aiEnabled } from '../lib/ai.js';
+import { queryTerms, cardMatches } from '../lib/search.js';
 
 const VIEWS = [
   ['live', 'Live'],
@@ -13,20 +14,66 @@ const VIEWS = [
   ['deleted', 'Deleted'],
 ];
 
+function SearchIcon({ className = '' }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 15 15"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      className={className}
+    >
+      <circle cx="6.5" cy="6.5" r="4.5" />
+      <path d="M10 10l3.5 3.5" />
+    </svg>
+  );
+}
+
 // Compact two-row header: brand + utilities on top, the Live/Done/Deleted
 // switcher below. Filtering lives in each column's funnel now — the header ⋯
 // menu keeps the board-wide bits: AI assistant, sync, hide-done, backup.
-export default function Header({ view, setView, onAiChanged, onStartCleanup }) {
+// The search icon expands over the brand into an input; its query composes
+// with the column filters (both must match) and applies to whichever board
+// you're on, so the archive is searchable too.
+export default function Header({
+  view,
+  setView,
+  query,
+  setQuery,
+  onAiChanged,
+  onStartCleanup,
+  onQuickCapture,
+}) {
   const { state, actions, theme, toggleTheme } = useStore();
   const [menu, setMenu] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [cleanupOpen, setCleanupOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
 
   const counts = {
     live: state.cards.filter((c) => c.status === 'live').length,
     done: state.cards.filter((c) => c.status === 'done').length,
     deleted: state.cards.filter((c) => c.status === 'deleted').length,
+  };
+
+  // Count within the CURRENT board only — matches what you're looking at.
+  const terms = queryTerms(query);
+  const matchCount = terms.length
+    ? state.cards.filter((c) => c.status === view && cardMatches(c, terms)).length
+    : 0;
+
+  const closeSearch = () => {
+    setQuery('');
+    setSearchOpen(false);
   };
 
   const item = 'block w-full px-3 py-2 text-left text-sm text-ink/80 hover:bg-ink/5';
@@ -39,9 +86,46 @@ export default function Header({ view, setView, onAiChanged, onStartCleanup }) {
     // the header strip and outside-clicks could never close the menu.
     <header className="relative z-40 shrink-0 border-b border-ink/10 bg-paper">
       <div className="mx-auto flex max-w-5xl items-center gap-2 px-3 pt-2.5">
-        <h1 className="flex-1 text-base font-bold tracking-tight">
-          Pino<span className="text-accent">.</span>
-        </h1>
+        {searchOpen ? (
+          <div className="flex flex-1 items-center gap-1.5 rounded-full border border-accent/40 bg-surface px-2.5 py-1 ring-1 ring-accent/20">
+            <SearchIcon className="shrink-0 text-accent" />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && closeSearch()}
+              placeholder="Search tasks…"
+              className="min-w-0 flex-1 bg-transparent py-0.5 text-base outline-none placeholder:text-ink/35 sm:text-sm"
+            />
+            {!!terms.length && (
+              <span className="shrink-0 text-[11px] tabular-nums text-ink/45">
+                {matchCount}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={closeSearch}
+              title="Close search"
+              className="shrink-0 rounded-md p-0.5 leading-none text-ink/45 hover:text-ink"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <>
+            <h1 className="flex-1 text-base font-bold tracking-tight">
+              Pino<span className="text-accent">.</span>
+            </h1>
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              title="Search tasks"
+              className="rounded-lg p-1.5 text-ink/60 hover:bg-ink/5"
+            >
+              <SearchIcon />
+            </button>
+          </>
+        )}
 
         <button
           type="button"
@@ -65,6 +149,17 @@ export default function Header({ view, setView, onAiChanged, onStartCleanup }) {
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
               <div className="absolute right-0 top-8 z-40 flex w-56 flex-col overflow-hidden rounded-xl border border-ink/10 bg-surface py-1 shadow-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(false);
+                    onQuickCapture();
+                  }}
+                  className={item}
+                >
+                  ⚡ Quick capture…
+                </button>
+                <div className="my-1 h-px bg-ink/10" />
                 <button
                   type="button"
                   onClick={() => {

@@ -10,16 +10,38 @@ import AiChat from './components/AiChat.jsx';
 import QuickVoice from './components/QuickVoice.jsx';
 import CleanupBanner from './components/CleanupBanner.jsx';
 import CleanupMode from './components/CleanupMode.jsx';
+import ShareSheet from './components/ShareSheet.jsx';
 import { aiEnabled } from './lib/ai.js';
 
 export default function App() {
   const { storageFull, undo, redo } = useStore();
   const [view, setView] = useState('live'); // 'live' | 'done' | 'deleted'
   const [chatOpen, setChatOpen] = useState(false);
+  const [query, setQuery] = useState(''); // transient board search — never synced
+  // null = closed; else the (editable) text to capture
+  const [shareText, setShareText] = useState(null);
   // null = closed; else { categoryIds: string[]|null, scheduleIds: string[] }
   const [cleanupScope, setCleanupScope] = useState(null);
   // Bumped by Header when AI settings are saved, so the FAB appears instantly.
   const [aiRev, setAiRev] = useState(0);
+
+  // Share target intake. The manifest registers Pino in Android's share sheet
+  // with method GET, so shared content arrives as query params on the start
+  // URL — no server route needed, which is what makes this work on static
+  // hosting. Params are stripped immediately so a refresh can't re-import.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const title = p.get('title');
+    const text = p.get('text');
+    const url = p.get('url');
+    if (!title && !text && !url) return;
+    const shared = [title, text, url && url !== text ? url : null]
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    window.history.replaceState({}, '', window.location.pathname);
+    if (shared) setShareText(shared);
+  }, []);
 
   // Global undo/redo — guarded so typing in an input never triggers it.
   useEffect(() => {
@@ -49,7 +71,10 @@ export default function App() {
         <Header
           view={view}
           setView={setView}
+          query={query}
+          setQuery={setQuery}
           onAiChanged={() => setAiRev((r) => r + 1)}
+          onQuickCapture={() => setShareText('')}
           onStartCleanup={(scope) =>
             setCleanupScope(scope || { categoryIds: null, scheduleIds: [] })
           }
@@ -65,7 +90,7 @@ export default function App() {
         <CleanupBanner onStart={(scope) => setCleanupScope(scope)} />
 
         <main className="min-h-0 flex-1">
-          {view === 'live' ? <Board /> : <ArchiveList mode={view} />}
+          {view === 'live' ? <Board query={query} /> : <ArchiveList mode={view} query={query} />}
         </main>
       </div>
 
@@ -91,6 +116,9 @@ export default function App() {
       {chatOpen && <AiChat onClose={() => setChatOpen(false)} />}
       {cleanupScope && (
         <CleanupMode scope={cleanupScope} onClose={() => setCleanupScope(null)} />
+      )}
+      {shareText !== null && (
+        <ShareSheet initialText={shareText} onClose={() => setShareText(null)} />
       )}
     </SnackProvider>
   );

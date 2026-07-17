@@ -4,17 +4,20 @@ import { useStore } from '../store/StoreContext.jsx';
 import { useSnack } from './Snackbar.jsx';
 import CheckCircle from './CheckCircle.jsx';
 import { Pill } from './ui.jsx';
+import { queryTerms, cardMatches } from '../lib/search.js';
 
 // The Done and Deleted boards. Rows render in array order — a card landing
 // here is hoisted to the front by the store, so it's newest-first by default
 // and can be drag-reordered exactly like the live board.
 //   Done:    uncheck to restore · ⋯ → move to Deleted / delete forever
 //   Deleted: restore · delete forever (confirmed)
-export default function ArchiveList({ mode }) {
+export default function ArchiveList({ mode, query = '' }) {
   const { state, actions, undo } = useStore();
   const snack = useSnack();
 
-  const cards = state.cards.filter((c) => c.status === mode);
+  const terms = queryTerms(query);
+  const searching = terms.length > 0;
+  const cards = state.cards.filter((c) => c.status === mode && cardMatches(c, terms));
 
   const restore = (card) => {
     actions.restoreCard(card.id);
@@ -46,15 +49,27 @@ export default function ArchiveList({ mode }) {
 
   const onDragEnd = ({ draggableId, source, destination }) => {
     if (!destination || destination.index === source.index) return;
-    actions.moveArchiveCard(draggableId, destination.index);
+    // The visible list may be search-filtered, so map the visible destination
+    // index onto a slot among ALL cards of this status (the index
+    // moveArchiveCard expects) — otherwise a drop while searching lands the
+    // card next to the wrong neighbour.
+    const visible = cards.filter((c) => c.id !== draggableId);
+    const anchor = visible[destination.index];
+    const underlying = state.cards.filter((c) => c.status === mode && c.id !== draggableId);
+    actions.moveArchiveCard(
+      draggableId,
+      anchor ? underlying.indexOf(anchor) : underlying.length,
+    );
   };
 
   if (cards.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-sm text-ink/40">
-        {mode === 'done'
-          ? 'Nothing done yet — completed tasks land here.'
-          : 'Nothing deleted. Deleted tasks land here and can be restored.'}
+        {searching
+          ? 'No matches on this board.'
+          : mode === 'done'
+            ? 'Nothing done yet — completed tasks land here.'
+            : 'Nothing deleted. Deleted tasks land here and can be restored.'}
       </div>
     );
   }
@@ -68,7 +83,9 @@ export default function ArchiveList({ mode }) {
             {...provided.droppableProps}
             className="mx-auto h-full max-w-xl overflow-y-auto px-3 py-3"
           >
-            {mode === 'deleted' && (
+            {/* Hidden while searching: it empties the WHOLE board, which
+                wouldn't match the filtered list you're looking at. */}
+            {mode === 'deleted' && !searching && (
               <div className="mb-2 flex justify-end">
                 <button
                   type="button"

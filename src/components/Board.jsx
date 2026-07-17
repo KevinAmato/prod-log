@@ -4,19 +4,22 @@ import { useStore } from '../store/StoreContext.jsx';
 import Column from './Column.jsx';
 import { isOverdue } from '../lib/dates.js';
 import { numberCards } from '../lib/assistant.js';
+import { queryTerms, cardMatches } from '../lib/search.js';
 
 // The live board. Mobile-first: columns are near-full-width and snap-scroll
 // horizontally; desktop side by side. Drag & drop is @hello-pangea/dnd.
 // Filters are PER COLUMN (funnel in each column header); task numbers are the
 // global top-to-bottom order over unfiltered live cards, so they stay stable
 // while filtering and are what the AI assistant references.
-export default function Board() {
+export default function Board({ query = '' }) {
   const { state, actions } = useStore();
   const [addingCol, setAddingCol] = useState(false);
   const [dragging, setDragging] = useState(false);
 
   const numbers = useMemo(() => numberCards(state), [state]);
+  const terms = useMemo(() => queryTerms(query), [query]);
 
+  // Search composes WITH the column's own filter — a card has to satisfy both.
   const visibleIn = (col) => {
     const f = col.filter || {};
     return state.cards.filter(
@@ -24,7 +27,8 @@ export default function Board() {
         c.status === 'live' &&
         c.columnId === col.id &&
         (!f.categoryId || c.categoryId === f.categoryId) &&
-        (!f.overdue || isOverdue(c.dueDate)),
+        (!f.overdue || isOverdue(c.dueDate)) &&
+        cardMatches(c, terms),
     );
   };
 
@@ -81,6 +85,7 @@ export default function Board() {
             canDelete={state.columns.length > 1}
             cards={visibleIn(col)}
             numbers={numbers}
+            searching={terms.length > 0}
           />
         ))}
 

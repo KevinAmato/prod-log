@@ -3,7 +3,7 @@
 // Also: reminder notifications while the app is closed, via Periodic Background
 // Sync reading the IndexedDB mirror the app maintains (SWs can't read
 // localStorage — see src/lib/reminders.js).
-const CACHE = 'prodlog-v4'; // v4: rebrand to Pino (title/manifest text only)
+const CACHE = 'prodlog-v5'; // v5: share_target (quick capture) + search
 
 self.addEventListener('install', () => self.skipWaiting());
 

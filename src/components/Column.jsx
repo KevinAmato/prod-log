@@ -17,7 +17,7 @@ const SORT_ACTIONS = [
 //   ⧩  filter — per-column view filter: category color and/or overdue
 //   ⋯  rest   — rename / remove
 // Cards can be dropped anywhere in the column body.
-export default function Column({ column, cards, columns, canDelete, numbers }) {
+export default function Column({ column, cards, columns, canDelete, numbers, searching = false }) {
   const { state, actions, undo } = useStore();
   const snack = useSnack();
   const [menu, setMenu] = useState(false); // 'sort' | 'filter' | 'more' | false
@@ -313,7 +313,11 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
             {provided.placeholder}
             {cards.length === 0 && (
               <p className="pointer-events-none px-2 py-3 text-center text-xs text-ink/30">
-                {filterActive ? 'No tasks match the filter' : 'No tasks yet — tap to add'}
+                {searching
+                  ? 'No matches'
+                  : filterActive
+                    ? 'No tasks match the filter'
+                    : 'No tasks yet — tap to add'}
               </p>
             )}
           </div>
