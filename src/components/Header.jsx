@@ -3,6 +3,7 @@ import { useStore } from '../store/StoreContext.jsx';
 import BackupControls from './BackupControls.jsx';
 import SyncSheet from './SyncSheet.jsx';
 import AiSettingsSheet from './AiSettingsSheet.jsx';
+import CleanupSheet from './CleanupSheet.jsx';
 import { syncEnabled } from '../lib/sync.js';
 import { aiEnabled } from '../lib/ai.js';
 
@@ -15,11 +16,12 @@ const VIEWS = [
 // Compact two-row header: brand + utilities on top, the Live/Done/Deleted
 // switcher below. Filtering lives in each column's funnel now — the header ⋯
 // menu keeps the board-wide bits: AI assistant, sync, hide-done, backup.
-export default function Header({ view, setView, onAiChanged }) {
+export default function Header({ view, setView, onAiChanged, onStartCleanup }) {
   const { state, actions, theme, toggleTheme } = useStore();
   const [menu, setMenu] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
 
   const counts = {
     live: state.cards.filter((c) => c.status === 'live').length,
@@ -67,6 +69,16 @@ export default function Header({ view, setView, onAiChanged }) {
                   className={item}
                 >
                   ✦ AI assistant{aiEnabled() ? ' ✓' : '…'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(false);
+                    setCleanupOpen(true);
+                  }}
+                  className={item}
+                >
+                  🧹 Cleanup schedule{state.cleanup?.everyDays ? ' ✓' : '…'}
                 </button>
                 <button
                   type="button"
@@ -120,6 +132,9 @@ export default function Header({ view, setView, onAiChanged }) {
 
       {syncOpen && <SyncSheet onClose={() => setSyncOpen(false)} />}
       {aiOpen && <AiSettingsSheet onClose={() => setAiOpen(false)} onSaved={onAiChanged} />}
+      {cleanupOpen && (
+        <CleanupSheet onClose={() => setCleanupOpen(false)} onStart={onStartCleanup} />
+      )}
     </header>
   );
 }

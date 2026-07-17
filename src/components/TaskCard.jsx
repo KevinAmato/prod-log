@@ -18,6 +18,8 @@ import { dueInfo as dueInfoOf } from '../lib/dates.js';
 // interactive ELEMENTS (button/input/textarea), which is why the title/body
 // is a plain div with role="button": tap toggles expand, press-and-move
 // drags — while the real controls (checkbox, color, ⋯) stay drag-proof.
+// `spotlight` (cleanup review): starts expanded and shows subtasks even when
+// the card is collapsed — reviewing means seeing everything.
 export default function TaskCard({
   card,
   number,
@@ -26,10 +28,11 @@ export default function TaskCard({
   columns,
   provided,
   isDragging = false,
+  spotlight = false,
 }) {
   const { state, actions, undo } = useStore();
   const snack = useSnack();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!spotlight);
   const [menu, setMenu] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [remindersOpen, setRemindersOpen] = useState(false);
@@ -263,7 +266,7 @@ export default function TaskCard({
       </div>
 
       {/* ── Subtasks (foldable via the n/m chip) ──────────────────────── */}
-      {visibleSubs.length > 0 && !card.collapsed && (
+      {visibleSubs.length > 0 && (!card.collapsed || spotlight) && (
         <ul className="space-y-0.5 px-3 pb-2 pl-[42px]">
           {visibleSubs.map((t) => (
             <SubtaskRow

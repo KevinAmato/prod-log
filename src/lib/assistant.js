@@ -67,8 +67,34 @@ export function buildSnapshot(state) {
       })),
       categories: state.categories.map((k) => k.name),
       tasks,
+      archive: {
+        done: state.cards.filter((c) => c.status === 'done').length,
+        deleted: state.cards.filter((c) => c.status === 'deleted').length,
+      },
     },
   };
+}
+
+// The Done / Deleted boards, fetched on demand via the fetch_archive action
+// (not in the default snapshot — usually irrelevant and it wastes tokens).
+export function buildArchiveSnapshot(state, boards = ['done', 'deleted']) {
+  const colName = (id) => state.columns.find((c) => c.id === id)?.name;
+  const pick = (status, stamp) =>
+    state.cards
+      .filter((c) => c.status === status)
+      .slice(-100) // bound the payload
+      .map((c) => ({
+        title: c.title,
+        column: colName(c.columnId),
+        [stamp]: c[stamp] || undefined,
+        subtasks: c.subtasks.length
+          ? c.subtasks.map((t) => `${t.done ? '[x]' : '[ ]'} ${t.text}`)
+          : undefined,
+      }));
+  const out = {};
+  if (boards.includes('done')) out.done = pick('done', 'doneAt');
+  if (boards.includes('deleted')) out.deleted = pick('deleted', 'deletedAt');
+  return out;
 }
 
 // ── System prompt ────────────────────────────────────────────────────────
@@ -94,6 +120,7 @@ ACTIONS:
 - {"type":"complete_subtask","task":"n.m"}
 - {"type":"delete_task","task":n}              // moves to the Deleted board (recoverable)
 - {"type":"delete_subtask","task":"n.m"}
+- {"type":"move_task","task":n,"column":string}   // move a task to another column (lands at the bottom)
 - {"type":"rename_task","task":n,"title":string}   // ONLY when the user explicitly asks to rename/edit the title
 - {"type":"add_note","task":n,"text":string}   // append-only; the app prefixes "Bot update:" automatically
 - {"type":"set_due","task":n or "n.m","due":"YYYY-MM-DD" or null}
@@ -101,6 +128,13 @@ ACTIONS:
 - {"type":"remove_reminder","task":n or "n.m","at":"YYYY-MM-DDTHH:mm"}   // "at" must exactly match an existing reminder from the snapshot above
 - {"type":"set_category","task":n,"category":string or null}
 - {"type":"filter_column","column":string or "all","category":string or null,"overdue"?:boolean}
+- {"type":"fetch_archive","boards":["done","deleted"]}   // see ARCHIVE below
+
+ARCHIVE: the snapshot lists LIVE tasks only; "archive" shows how many tasks sit
+on the Done and Deleted boards. If the user asks about completed or deleted
+tasks, reply with fetch_archive as your ONLY action (reply: something brief
+like "Checking…"). The archive contents will be provided and you'll be asked
+again — then answer normally. Never call fetch_archive twice in a row.
 
 RULES:
 - New tasks go to the FIRST column ("${state.columns[0]?.name}") unless the user names a column.
@@ -266,6 +300,28 @@ export function executeActions(rawActions, snapshot, state, actions) {
           ok(`Removed subtask "${r.sub.text}" from "${r.card.title}"`);
           break;
         }
+
+        case 'move_task': {
+          const r = resolveRef(a.task, snapshot, state);
+          if (!r.card) {
+            fail(`move: ${r.error}`);
+            break;
+          }
+          const col = resolveColumn(a.column, state);
+          if (!col.hit) {
+            fail(`move: ${col.error}`);
+            break;
+          }
+          actions.moveCard(r.card.id, col.hit.id, Infinity);
+          ok(`Moved "${r.card.title}" to ${col.hit.name}`);
+          break;
+        }
+
+        case 'fetch_archive':
+          // Handled by the chat loop BEFORE execution — reaching here means the
+          // model called it in the answer round; the data was already provided.
+          fail('fetch_archive is only valid as the first-round action');
+          break;
 
         case 'rename_task': {
           const r = resolveRef(a.task, snapshot, state);

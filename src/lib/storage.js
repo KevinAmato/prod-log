@@ -37,6 +37,8 @@ export const emptyState = () => ({
     filterCategoryId: null, // board-level: only show this color (null = all)
     filterOverdue: false, // board-level: only show overdue cards
   },
+  // Recurring cleanup review (Menu → Cleanup schedule). Syncs like the rest.
+  cleanup: { everyDays: null, time: '18:00', nextAt: null },
   // Sync merge metadata: lastModified stamps every commit; tombstones record
   // permanent deletions so another device's copy can't resurrect them.
   lastModified: null,
@@ -76,6 +78,7 @@ export function loadState() {
           ? parsed.categories
           : base.categories,
       prefs: { ...base.prefs, ...(parsed.prefs || {}) },
+      cleanup: { ...base.cleanup, ...(parsed.cleanup || {}) },
       tombstones: {
         cards: parsed.tombstones?.cards || [],
         columns: parsed.tombstones?.columns || [],
@@ -123,6 +126,7 @@ export function parseImportedBlob(text) {
         ? parsed.categories
         : base.categories,
     prefs: { ...base.prefs, ...(parsed.prefs || {}) },
+    cleanup: { ...base.cleanup, ...(parsed.cleanup || {}) },
     tombstones: {
       cards: parsed.tombstones?.cards || [],
       columns: parsed.tombstones?.columns || [],

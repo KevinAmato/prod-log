@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useStore } from '../store/StoreContext.jsx';
 import { useSnack } from './Snackbar.jsx';
 import { fireNotification, mirrorReminders, pendingReminders } from '../lib/reminders.js';
+import { cleanupMirrorEntry } from '../lib/cleanup.js';
 
 // Headless: fires due reminders while the app is open (checked every 20 s and
 // on tab focus) and keeps the IndexedDB mirror fresh so the service worker can
@@ -12,8 +13,8 @@ export default function ReminderEngine() {
   const snack = useSnack();
 
   useEffect(() => {
-    mirrorReminders(state.cards);
-  }, [state.cards]);
+    mirrorReminders(state.cards, [cleanupMirrorEntry(state.cleanup)]);
+  }, [state.cards, state.cleanup]);
 
   useEffect(() => {
     const check = () => {

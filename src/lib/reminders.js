@@ -86,10 +86,11 @@ export function pendingReminders(cards) {
   return out;
 }
 
-// Rewrite the mirror with every PENDING reminder. The SW deletes entries as it
+// Rewrite the mirror with every PENDING reminder (+ any extra synthetic
+// entries, e.g. the cleanup-schedule nudge). The SW deletes entries as it
 // notifies them, so anything it fires while the app is closed won't re-fire on
 // the next sync.
-export async function mirrorReminders(cards) {
+export async function mirrorReminders(cards, extra = []) {
   try {
     const db = await openDB();
     const tx = db.transaction('reminders', 'readwrite');
@@ -97,6 +98,9 @@ export async function mirrorReminders(cards) {
     store.clear();
     for (const r of pendingReminders(cards)) {
       store.put({ id: r.id, at: r.at, title: r.title, body: r.body });
+    }
+    for (const e of extra) {
+      if (e) store.put({ id: e.id, at: e.at, title: e.title, body: e.body });
     }
     await new Promise((res, rej) => {
       tx.oncomplete = res;

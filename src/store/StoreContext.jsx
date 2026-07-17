@@ -444,6 +444,11 @@ export function StoreProvider({ children }) {
         setState((s) => ({ ...s, prefs: { ...s.prefs, [key]: value } }));
       },
 
+      // ── Cleanup schedule ──────────────────────────────────────────────
+      setCleanup(patch) {
+        setState((s) => ({ ...s, cleanup: { ...s.cleanup, ...patch } }));
+      },
+
       // ── Backup / restore ──────────────────────────────────────────────
       importState(text) {
         const next = parseImportedBlob(text);

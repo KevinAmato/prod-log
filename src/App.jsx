@@ -7,12 +7,15 @@ import ArchiveList from './components/ArchiveList.jsx';
 import ReminderEngine from './components/ReminderEngine.jsx';
 import SyncEngine from './components/SyncEngine.jsx';
 import AiChat from './components/AiChat.jsx';
+import CleanupBanner from './components/CleanupBanner.jsx';
+import CleanupMode from './components/CleanupMode.jsx';
 import { aiEnabled } from './lib/ai.js';
 
 export default function App() {
   const { storageFull, undo, redo } = useStore();
   const [view, setView] = useState('live'); // 'live' | 'done' | 'deleted'
   const [chatOpen, setChatOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
   // Bumped by Header when AI settings are saved, so the FAB appears instantly.
   const [aiRev, setAiRev] = useState(0);
 
@@ -41,7 +44,12 @@ export default function App() {
       <ReminderEngine />
       <SyncEngine />
       <div className="flex h-[100dvh] flex-col">
-        <Header view={view} setView={setView} onAiChanged={() => setAiRev((r) => r + 1)} />
+        <Header
+          view={view}
+          setView={setView}
+          onAiChanged={() => setAiRev((r) => r + 1)}
+          onStartCleanup={() => setCleanupOpen(true)}
+        />
 
         {storageFull && (
           <div className="shrink-0 bg-amber-500/15 px-4 py-2 text-center text-xs text-amber-800">
@@ -49,6 +57,8 @@ export default function App() {
             old tasks from the Deleted board.
           </div>
         )}
+
+        <CleanupBanner onStart={() => setCleanupOpen(true)} />
 
         <main className="min-h-0 flex-1">
           {view === 'live' ? <Board /> : <ArchiveList mode={view} />}
@@ -73,6 +83,7 @@ export default function App() {
         </button>
       )}
       {chatOpen && <AiChat onClose={() => setChatOpen(false)} />}
+      {cleanupOpen && <CleanupMode onClose={() => setCleanupOpen(false)} />}
     </SnackProvider>
   );
 }
