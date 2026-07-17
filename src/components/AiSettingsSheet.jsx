@@ -86,6 +86,11 @@ export default function AiSettingsSheet({ onClose, onSaved }) {
             <option key={m} value={m} />
           ))}
         </datalist>
+        <p className="mt-1 text-[11px] leading-relaxed text-ink/45">
+          Suggestions are ordered cheapest first — this app mostly reads a small board
+          snapshot and picks an action, which the cheap/fast tier handles well. Type any
+          other model id if you'd rather use a pricier one.
+        </p>
 
         <button
           type="button"

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { DragDropContext } from '@hello-pangea/dnd';
 import { useStore } from './store/StoreContext.jsx';
-import { SnackProvider } from './components/Snackbar.jsx';
+import { SnackProvider, useSnack } from './components/Snackbar.jsx';
 import Header from './components/Header.jsx';
 import Board from './components/Board.jsx';
 import ArchiveList from './components/ArchiveList.jsx';
@@ -12,12 +13,27 @@ import CleanupBanner from './components/CleanupBanner.jsx';
 import CleanupMode from './components/CleanupMode.jsx';
 import ShareSheet from './components/ShareSheet.jsx';
 import { aiEnabled } from './lib/ai.js';
+import { isOverdue } from './lib/dates.js';
+import { queryTerms, cardMatches } from './lib/search.js';
 
+// SnackProvider has to be an ANCESTOR of anything calling useSnack(), and the
+// drag handler below needs the snack — so the DragDropContext + its state
+// live in an inner component, one level below the provider.
 export default function App() {
-  const { storageFull, undo, redo } = useStore();
+  return (
+    <SnackProvider>
+      <Pino />
+    </SnackProvider>
+  );
+}
+
+function Pino() {
+  const { state, actions, storageFull, undo, redo } = useStore();
+  const snack = useSnack();
   const [view, setView] = useState('live'); // 'live' | 'done' | 'deleted'
   const [chatOpen, setChatOpen] = useState(false);
   const [query, setQuery] = useState(''); // transient board search — never synced
+  const [dragging, setDragging] = useState(false);
   // null = closed; else the (editable) text to capture
   const [shareText, setShareText] = useState(null);
   // null = closed; else { categoryIds: string[]|null, scheduleIds: string[] }
@@ -63,36 +79,122 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo]);
 
+  // ONE DragDropContext for the whole app — Board's columns, ArchiveList's
+  // rows, AND the Header's Done/Deleted tabs are all descendants of it, which
+  // is what lets a card be dragged out of the board and dropped on a tab.
+  // Routes by destination first (tab drop = complete/delete, regardless of
+  // which board is currently mounted), then falls back to whichever kind of
+  // reorder the source droppableId indicates.
+  const terms = useMemo(() => queryTerms(query), [query]);
+
+  const visibleInColumn = (col) => {
+    const f = col.filter || {};
+    return state.cards.filter(
+      (c) =>
+        c.status === 'live' &&
+        c.columnId === col.id &&
+        (!f.categoryId || c.categoryId === f.categoryId) &&
+        (!f.overdue || isOverdue(c.dueDate)) &&
+        cardMatches(c, terms),
+    );
+  };
+
+  const onDragEnd = ({ draggableId: id, source, destination }) => {
+    setDragging(false);
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) {
+      return;
+    }
+
+    // ── Dropped on a Header tab: complete or delete, from whatever board is
+    // currently open. No-ops for a transition that isn't one of the three
+    // that already exist elsewhere in the UI (see Header.jsx for why).
+    if (destination.droppableId === 'tab-done' || destination.droppableId === 'tab-deleted') {
+      const card = state.cards.find((c) => c.id === id);
+      if (!card) return;
+      if (destination.droppableId === 'tab-done' && card.status === 'live') {
+        actions.completeCard(id); // force-completes subtasks — see Header.jsx
+        snack('Task done', { label: 'Undo', onAction: undo });
+      } else if (destination.droppableId === 'tab-deleted' && card.status !== 'deleted') {
+        actions.deleteCard(id);
+        snack('Task deleted', { label: 'Undo', onAction: undo });
+      }
+      return;
+    }
+
+    // ── Archive reorder (Done/Deleted board, dragging within itself) ──────
+    if (source.droppableId.startsWith('archive-')) {
+      const mode = source.droppableId.slice('archive-'.length);
+      const visible = state.cards.filter((c) => c.status === mode && cardMatches(c, terms));
+      const anchor = visible.filter((c) => c.id !== id)[destination.index];
+      const underlying = state.cards.filter((c) => c.status === mode && c.id !== id);
+      actions.moveArchiveCard(id, anchor ? underlying.indexOf(anchor) : underlying.length);
+      return;
+    }
+
+    // ── Live board: move within/between columns ────────────────────────────
+    const destCol = state.columns.find((c) => c.id === destination.droppableId);
+    if (!destCol) return;
+    const visible = visibleInColumn(destCol).filter((c) => c.id !== id);
+    const anchor = visible[destination.index];
+    let slot = Infinity;
+    if (anchor) {
+      const underlying = state.cards.filter(
+        (c) => c.status === 'live' && c.columnId === destination.droppableId && c.id !== id,
+      );
+      slot = underlying.indexOf(anchor);
+    }
+    actions.moveCard(id, destination.droppableId, slot);
+  };
+
   return (
-    <SnackProvider>
+    <>
       <ReminderEngine />
       <SyncEngine />
-      <div className="flex h-[100dvh] flex-col">
-        <Header
-          view={view}
-          setView={setView}
-          query={query}
-          setQuery={setQuery}
-          onAiChanged={() => setAiRev((r) => r + 1)}
-          onQuickCapture={() => setShareText('')}
-          onStartCleanup={(scope) =>
-            setCleanupScope(scope || { categoryIds: null, scheduleIds: [] })
-          }
-        />
+      <DragDropContext
+        onDragStart={() => setDragging(true)}
+        onDragEnd={onDragEnd}
+        // Softer cross-column drags on mobile: the board starts auto-scrolling
+        // much earlier (30% from the edge vs 25% default) and ramps to a faster
+        // max sooner, so nudging a card toward the next column — or up toward
+        // the Done/Deleted tabs — scrolls the view to meet it.
+        autoScrollerOptions={{
+          startFromPercentage: 0.3,
+          maxScrollAtPercentage: 0.15,
+          maxPixelScroll: 34,
+        }}
+      >
+        <div className="flex h-[100dvh] flex-col">
+          <Header
+            view={view}
+            setView={setView}
+            query={query}
+            setQuery={setQuery}
+            onAiChanged={() => setAiRev((r) => r + 1)}
+            onQuickCapture={() => setShareText('')}
+            onStartCleanup={(scope) =>
+              setCleanupScope(scope || { categoryIds: null, scheduleIds: [] })
+            }
+          />
 
-        {storageFull && (
-          <div className="shrink-0 bg-amber-500/15 px-4 py-2 text-center text-xs text-amber-800">
-            Browser storage is full — changes may not persist. Export a backup, then clear
-            old tasks from the Deleted board.
-          </div>
-        )}
+          {storageFull && (
+            <div className="shrink-0 bg-amber-500/15 px-4 py-2 text-center text-xs text-amber-800">
+              Browser storage is full — changes may not persist. Export a backup, then clear
+              old tasks from the Deleted board.
+            </div>
+          )}
 
-        <CleanupBanner onStart={(scope) => setCleanupScope(scope)} />
+          <CleanupBanner onStart={(scope) => setCleanupScope(scope)} />
 
-        <main className="min-h-0 flex-1">
-          {view === 'live' ? <Board query={query} /> : <ArchiveList mode={view} query={query} />}
-        </main>
-      </div>
+          <main className="min-h-0 flex-1">
+            {view === 'live' ? (
+              <Board query={query} dragging={dragging} />
+            ) : (
+              <ArchiveList mode={view} query={query} />
+            )}
+          </main>
+        </div>
+      </DragDropContext>
 
       {/* AI assistant — chat FAB with the voice FAB underneath, only with a key */}
       {aiEnabled() && !chatOpen && (
@@ -120,6 +222,6 @@ export default function App() {
       {shareText !== null && (
         <ShareSheet initialText={shareText} onClose={() => setShareText(null)} />
       )}
-    </SnackProvider>
+    </>
   );
 }

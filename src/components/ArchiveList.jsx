@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { useStore } from '../store/StoreContext.jsx';
 import { useSnack } from './Snackbar.jsx';
 import CheckCircle from './CheckCircle.jsx';
@@ -8,9 +8,14 @@ import { queryTerms, cardMatches } from '../lib/search.js';
 
 // The Done and Deleted boards. Rows render in array order — a card landing
 // here is hoisted to the front by the store, so it's newest-first by default
-// and can be drag-reordered exactly like the live board.
+// and can be drag-reordered exactly like the live board — or dragged onto
+// the OTHER archive tab in the header (Done -> Deleted) to move it there.
 //   Done:    uncheck to restore · ⋯ → move to Deleted / delete forever
 //   Deleted: restore · delete forever (confirmed)
+//
+// Drag & drop (@hello-pangea/dnd) lives ONE level up, in App.jsx — a single
+// DragDropContext spans Header + Board + ArchiveList; see its onDragEnd for
+// both this board's own reordering and the tab-drop routing.
 export default function ArchiveList({ mode, query = '' }) {
   const { state, actions, undo } = useStore();
   const snack = useSnack();
@@ -47,21 +52,6 @@ export default function ArchiveList({ mode, query = '' }) {
     }
   };
 
-  const onDragEnd = ({ draggableId, source, destination }) => {
-    if (!destination || destination.index === source.index) return;
-    // The visible list may be search-filtered, so map the visible destination
-    // index onto a slot among ALL cards of this status (the index
-    // moveArchiveCard expects) — otherwise a drop while searching lands the
-    // card next to the wrong neighbour.
-    const visible = cards.filter((c) => c.id !== draggableId);
-    const anchor = visible[destination.index];
-    const underlying = state.cards.filter((c) => c.status === mode && c.id !== draggableId);
-    actions.moveArchiveCard(
-      draggableId,
-      anchor ? underlying.indexOf(anchor) : underlying.length,
-    );
-  };
-
   if (cards.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-sm text-ink/40">
@@ -75,47 +65,45 @@ export default function ArchiveList({ mode, query = '' }) {
   }
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <Droppable droppableId={`archive-${mode}`}>
-        {(provided) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            className="mx-auto h-full max-w-xl overflow-y-auto px-3 py-3"
-          >
-            {/* Hidden while searching: it empties the WHOLE board, which
-                wouldn't match the filtered list you're looking at. */}
-            {mode === 'deleted' && !searching && (
-              <div className="mb-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={destroyAll}
-                  className="rounded-lg border border-accent/30 px-2.5 py-1.5 text-xs font-medium text-accent hover:bg-accent/10"
-                >
-                  Delete all forever
-                </button>
-              </div>
-            )}
-            {cards.map((card, i) => (
-              <Draggable key={card.id} draggableId={card.id} index={i}>
-                {(prov, snap) => (
-                  <ArchiveRow
-                    provided={prov}
-                    isDragging={snap.isDragging}
-                    card={card}
-                    mode={mode}
-                    onRestore={() => restore(card)}
-                    onToDeleted={() => toDeleted(card)}
-                    onDestroy={() => destroy(card)}
-                  />
-                )}
-              </Draggable>
-            ))}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
-    </DragDropContext>
+    <Droppable droppableId={`archive-${mode}`}>
+      {(provided) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.droppableProps}
+          className="mx-auto h-full max-w-xl overflow-y-auto px-3 py-3"
+        >
+          {/* Hidden while searching: it empties the WHOLE board, which
+              wouldn't match the filtered list you're looking at. */}
+          {mode === 'deleted' && !searching && (
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                onClick={destroyAll}
+                className="rounded-lg border border-accent/30 px-2.5 py-1.5 text-xs font-medium text-accent hover:bg-accent/10"
+              >
+                Delete all forever
+              </button>
+            </div>
+          )}
+          {cards.map((card, i) => (
+            <Draggable key={card.id} draggableId={card.id} index={i}>
+              {(prov, snap) => (
+                <ArchiveRow
+                  provided={prov}
+                  isDragging={snap.isDragging}
+                  card={card}
+                  mode={mode}
+                  onRestore={() => restore(card)}
+                  onToDeleted={() => toDeleted(card)}
+                  onDestroy={() => destroy(card)}
+                />
+              )}
+            </Draggable>
+          ))}
+          {provided.placeholder}
+        </div>
+      )}
+    </Droppable>
   );
 }
 

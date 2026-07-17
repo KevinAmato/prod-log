@@ -12,16 +12,21 @@ export const PROVIDERS = [
 ];
 
 // Suggested defaults shown as a datalist — NOT a restriction; any id works.
+// Ordered cheapest-first: this is a board-management assistant (create/
+// complete/reschedule tasks from a JSON snapshot), not a reasoning workload —
+// the cheap/fast tier is the right fit, and it's the user's own key paying
+// for every message, on every keystroke of every chat. Pricier models stay
+// one tap away in the same list for whoever wants them.
 export const MODEL_SUGGESTIONS = {
-  anthropic: ['claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5'],
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'o3'],
-  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-1.5-pro'],
+  anthropic: ['claude-haiku-4-5', 'claude-sonnet-5', 'claude-opus-4-8'],
+  openai: ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4.1', 'o3'],
+  gemini: ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-pro'],
 };
 
 export const DEFAULT_MODEL = {
-  anthropic: 'claude-opus-4-8',
+  anthropic: 'claude-haiku-4-5',
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-2.5-flash-lite',
 };
 
 const CFG_KEY = 'prodlog_ai_v1';

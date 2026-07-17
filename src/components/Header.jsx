@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Droppable } from '@hello-pangea/dnd';
 import { useStore } from '../store/StoreContext.jsx';
 import BackupControls from './BackupControls.jsx';
 import SyncSheet from './SyncSheet.jsx';
@@ -207,26 +208,53 @@ export default function Header({
         </div>
       </div>
 
-      {/* ── View switcher ─────────────────────────────────────────────── */}
+      {/* ── View switcher — Done/Deleted also double as drag targets: drop a
+             card here to complete (Done, force-completes subtasks too — a
+             drag is a deliberate enough gesture that a shake-and-reject would
+             feel broken) or delete (Deleted, soft — same as the ⋯ menu). Live
+             isn't a target; nothing asked for drag-to-restore and it already
+             has one (uncheck / Restore). ────────────────────────────────── */}
       <div className="mx-auto max-w-5xl px-3 pb-2.5 pt-2">
         <div className="grid grid-cols-3 gap-1 rounded-xl bg-ink/[0.06] p-1">
-          {VIEWS.map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setView(key)}
-              className={`rounded-lg py-1.5 text-sm font-medium transition-colors ${
-                view === key ? 'bg-surface shadow-sm' : 'text-ink/50 hover:text-ink/80'
-              }`}
-            >
-              {label}
-              {counts[key] > 0 && (
-                <span className={`ml-1.5 text-xs ${view === key ? 'text-accent' : 'text-ink/35'}`}>
-                  {counts[key]}
-                </span>
-              )}
-            </button>
-          ))}
+          {VIEWS.map(([key, label]) => {
+            const tab = (dropProps, isOver) => (
+              <button
+                ref={dropProps?.innerRef}
+                {...dropProps?.droppableProps}
+                type="button"
+                onClick={() => setView(key)}
+                title={
+                  key === 'done'
+                    ? 'Drop a task here to complete it'
+                    : key === 'deleted'
+                      ? 'Drop a task here to delete it'
+                      : undefined
+                }
+                className={`rounded-lg py-1.5 text-sm font-medium transition-all ${
+                  isOver
+                    ? 'scale-105 bg-accent text-white shadow-md'
+                    : view === key
+                      ? 'bg-surface shadow-sm'
+                      : 'text-ink/50 hover:text-ink/80'
+                }`}
+              >
+                {label}
+                {counts[key] > 0 && (
+                  <span
+                    className={`ml-1.5 text-xs ${isOver ? 'text-white' : view === key ? 'text-accent' : 'text-ink/35'}`}
+                  >
+                    {counts[key]}
+                  </span>
+                )}
+              </button>
+            );
+            if (key === 'live') return <div key={key}>{tab()}</div>;
+            return (
+              <Droppable key={key} droppableId={`tab-${key}`}>
+                {(dropProps, snapshot) => tab(dropProps, snapshot.isDraggingOver)}
+              </Droppable>
+            );
+          })}
         </div>
       </div>
 
