@@ -279,6 +279,26 @@ export function StoreProvider({ children }) {
         );
       },
 
+      // Remove one reminder from a card or one of its subtasks, atomically.
+      // Used by the AI assistant to "change/reschedule" a reminder — it
+      // removes the old one then adds the new one (there's no in-place edit).
+      removeReminderFrom(cardId, subId, remId) {
+        setState((s) =>
+          patchCard(s, cardId, (c) =>
+            subId
+              ? {
+                  ...c,
+                  subtasks: c.subtasks.map((t) =>
+                    t.id === subId
+                      ? { ...t, reminders: (t.reminders || []).filter((r) => r.id !== remId) }
+                      : t,
+                  ),
+                }
+              : { ...c, reminders: (c.reminders || []).filter((r) => r.id !== remId) },
+          ),
+        );
+      },
+
       // Guarded here too: a card is only done when every subtask is done.
       markDone(id) {
         setState((s) => {

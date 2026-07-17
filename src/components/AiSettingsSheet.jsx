@@ -8,12 +8,14 @@ import {
   saveAiSettings,
   clearAiSettings,
 } from '../lib/ai.js';
+import AiLogSheet from './AiLogSheet.jsx';
 
 // BYOK AI settings (ThreadPatrol-style BYOM): pick a provider, paste that
 // provider's key, optionally type ANY model id. Stored ONLY in this browser —
 // deliberately NOT in the synced blob, so your API key never leaves the device.
 export default function AiSettingsSheet({ onClose, onSaved }) {
   const [cfg, setCfg] = useState(getAiSettings());
+  const [logOpen, setLogOpen] = useState(false);
 
   const save = () => {
     saveAiSettings(cfg);
@@ -85,7 +87,15 @@ export default function AiSettingsSheet({ onClose, onSaved }) {
           ))}
         </datalist>
 
-        <div className="mt-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setLogOpen(true)}
+          className="mt-3 text-xs font-medium text-ink/50 underline-offset-2 hover:text-accent hover:underline"
+        >
+          View recent AI activity (debug log) →
+        </button>
+
+        <div className="mt-3 flex items-center justify-between">
           <button
             type="button"
             onClick={disable}
@@ -103,6 +113,8 @@ export default function AiSettingsSheet({ onClose, onSaved }) {
           </button>
         </div>
       </div>
+
+      {logOpen && <AiLogSheet onClose={() => setLogOpen(false)} />}
     </div>,
     document.body,
   );

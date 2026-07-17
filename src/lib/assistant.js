@@ -98,11 +98,20 @@ ACTIONS:
 - {"type":"add_note","task":n,"text":string}   // append-only; the app prefixes "Bot update:" automatically
 - {"type":"set_due","task":n or "n.m","due":"YYYY-MM-DD" or null}
 - {"type":"add_reminder","task":n or "n.m","at":"YYYY-MM-DDTHH:mm"}
+- {"type":"remove_reminder","task":n or "n.m","at":"YYYY-MM-DDTHH:mm"}   // "at" must exactly match an existing reminder from the snapshot above
 - {"type":"set_category","task":n,"category":string or null}
 - {"type":"filter_column","column":string or "all","category":string or null,"overdue"?:boolean}
 
 RULES:
 - New tasks go to the FIRST column ("${state.columns[0]?.name}") unless the user names a column.
+- There is no in-place edit for a reminder. To CHANGE/UPDATE/RESCHEDULE one,
+  call remove_reminder with its exact current "at" (copy it from the snapshot),
+  then add_reminder with the new time — two actions for one user request. If
+  the task has exactly one pending reminder and the user just says "change
+  the reminder" without saying which, that one is unambiguous — remove it.
+  Example: task 5's snapshot shows reminders ["2026-07-20T09:00"] and the user
+  says "change task 5's reminder to 10am" → remove_reminder task 5 at
+  "2026-07-20T09:00", then add_reminder task 5 at "2026-07-20T10:00".
 - Never rename a task unless explicitly asked to rename/change its title.
 - Notes are append-only — you can add, never remove or rewrite.
 - You CANNOT sort tasks. If asked to sort, say the column menu (⇅) does that.
@@ -316,6 +325,29 @@ export function executeActions(rawActions, snapshot, state, actions) {
           ok(
             `Reminder ${rem.at.replace('T', ' ')} on ${r.sub ? `subtask "${r.sub.text}"` : `"${r.card.title}"`}`,
           );
+          break;
+        }
+
+        case 'remove_reminder': {
+          const r = resolveRef(a.task, snapshot, state);
+          if (!r.card) {
+            fail(`remove reminder: ${r.error}`);
+            break;
+          }
+          const target = r.sub || r.card;
+          const list = target.reminders || [];
+          // Exact match preferred; if there's only one reminder on this item,
+          // that's an unambiguous match even if the model's "at" is slightly off.
+          const match = list.find((x) => x.at === a.at) || (list.length === 1 ? list[0] : null);
+          const who = r.sub ? `subtask "${r.sub.text}"` : `"${r.card.title}"`;
+          if (!match) {
+            fail(
+              `remove reminder: no reminder at "${a.at}" on ${who} (existing: ${list.map((x) => x.at).join(', ') || 'none'})`,
+            );
+            break;
+          }
+          actions.removeReminderFrom(r.card.id, r.sub?.id || null, match.id);
+          ok(`Removed the ${match.at.replace('T', ' ')} reminder on ${who}`);
           break;
         }
 
