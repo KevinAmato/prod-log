@@ -24,6 +24,13 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
   const [renaming, setRenaming] = useState(false);
   const [addSignal, setAddSignal] = useState(0); // tap-on-empty-space → quick add
   const renameRef = useRef(null);
+  // A tap on the column's empty space means "open the adder" — UNLESS the
+  // adder is already open, where it means "cancel". Both have to be decided
+  // at pointerdown: by the time `click` fires, the input's blur has already
+  // closed it, so `click` alone can't tell the two apart (and would just
+  // reopen it, making cancel impossible).
+  const adderOpen = useRef(false);
+  const suppressReopen = useRef(false);
 
   const filter = column.filter || {};
   const filterActive = !!filter.categoryId || !!filter.overdue;
@@ -275,8 +282,14 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
+            onPointerDown={(e) => {
+              if (e.target === e.currentTarget) suppressReopen.current = adderOpen.current;
+            }}
             onClick={(e) => {
-              if (e.target === e.currentTarget) setAddSignal((s) => s + 1);
+              if (e.target === e.currentTarget && !suppressReopen.current) {
+                setAddSignal((s) => s + 1);
+              }
+              suppressReopen.current = false;
             }}
             className={`min-h-[40px] flex-1 cursor-pointer overflow-y-auto px-2 py-2 transition-colors ${
               snapshot.isDraggingOver ? 'rounded-xl bg-accent/[0.06]' : ''
@@ -311,6 +324,9 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
       <div className="px-2 pb-2">
         <QuickAdd
           openSignal={addSignal}
+          onOpenChange={(o) => {
+            adderOpen.current = o;
+          }}
           onAdd={(titles) => actions.addCards(column.id, titles)}
         />
       </div>

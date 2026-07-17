@@ -105,6 +105,14 @@ export function StoreProvider({ children }) {
       return { ...s, cards: [card, ...s.cards.filter((c) => c.id !== id)] };
     };
 
+    // A card leaving the live board keeps only its CURRENT name — the
+    // Shorten undo stacks are working state, not archive material.
+    const dropHistory = (c) => ({
+      ...c,
+      titleHistory: [],
+      subtasks: (c.subtasks || []).map((t) => ({ ...t, textHistory: [] })),
+    });
+
     return {
       // ── Columns ───────────────────────────────────────────────────────
       addColumn(name) {
@@ -255,14 +263,85 @@ export function StoreProvider({ children }) {
         setState((s) =>
           hoist(
             patchCard(s, id, (c) => ({
-              ...c,
-              subtasks: c.subtasks.map((t) => ({ ...t, done: true })),
+              ...dropHistory(c),
+              subtasks: c.subtasks.map((t) => ({ ...t, done: true, textHistory: [] })),
               status: 'done',
               doneAt: new Date().toISOString(),
             })),
             id,
           ),
         );
+      },
+
+      // ── AI "Shorten" (title/text rewrite with a restore stack) ────────
+      // The old value is pushed onto a bounded history so Restore can walk
+      // back; both stacks are cleared when the card leaves the live board.
+      setTitleWithHistory(cardId, title) {
+        setState((s) =>
+          patchCard(s, cardId, (c) =>
+            title === c.title
+              ? c
+              : { ...c, title, titleHistory: [...(c.titleHistory || []), c.title].slice(-5) },
+          ),
+        );
+      },
+
+      restoreTitle(cardId) {
+        setState((s) =>
+          patchCard(s, cardId, (c) => {
+            const hist = c.titleHistory || [];
+            if (!hist.length) return c;
+            return { ...c, title: hist[hist.length - 1], titleHistory: hist.slice(0, -1) };
+          }),
+        );
+      },
+
+      setSubtaskTextWithHistory(cardId, subId, text) {
+        setState((s) =>
+          patchCard(s, cardId, (c) => ({
+            ...c,
+            subtasks: c.subtasks.map((t) =>
+              t.id === subId && text !== t.text
+                ? { ...t, text, textHistory: [...(t.textHistory || []), t.text].slice(-5) }
+                : t,
+            ),
+          })),
+        );
+      },
+
+      restoreSubtaskText(cardId, subId) {
+        setState((s) =>
+          patchCard(s, cardId, (c) => ({
+            ...c,
+            subtasks: c.subtasks.map((t) => {
+              if (t.id !== subId) return t;
+              const hist = t.textHistory || [];
+              if (!hist.length) return t;
+              return { ...t, text: hist[hist.length - 1], textHistory: hist.slice(0, -1) };
+            }),
+          })),
+        );
+      },
+
+      // Empty a whole archive board in ONE commit (one undo step), leaving
+      // tombstones so a synced device can't resurrect any of them.
+      destroyAll(status) {
+        setState((s) => {
+          const doomed = s.cards.filter((c) => c.status === status);
+          if (!doomed.length) return s;
+          const at = new Date().toISOString();
+          return {
+            ...s,
+            cards: s.cards.filter((c) => c.status !== status),
+            tombstones: {
+              ...(s.tombstones || { cards: [], columns: [] }),
+              cards: [
+                ...(s.tombstones?.cards || []),
+                ...doomed.map((c) => ({ id: c.id, at })),
+              ].slice(-300),
+            },
+          };
+        });
       },
 
       // Append-only note edit reading CURRENT state (safe in multi-action
@@ -319,7 +398,7 @@ export function StoreProvider({ children }) {
           if (!card || card.subtasks.some((t) => !t.done)) return s;
           return hoist(
             patchCard(s, id, (c) => ({
-              ...c,
+              ...dropHistory(c),
               status: 'done',
               doneAt: new Date().toISOString(),
             })),
@@ -332,7 +411,7 @@ export function StoreProvider({ children }) {
         setState((s) =>
           hoist(
             patchCard(s, id, (c) => ({
-              ...c,
+              ...dropHistory(c),
               status: 'deleted',
               deletedAt: new Date().toISOString(),
             })),

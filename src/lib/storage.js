@@ -83,16 +83,24 @@ function orderArchiveOnce(parsed, cards) {
 }
 
 // Older blobs predate dueDate/reminders/categoryId/collapsed/updatedAt —
-// default them in.
+// default them in. `titleHistory`/`textHistory` are the undo stacks behind
+// AI "Shorten" (see setTitleWithHistory in the store); they're deliberately
+// dropped when a card reaches the Done/Deleted boards.
 const normalizeCard = (c) => ({
   note: '',
   dueDate: null,
   categoryId: null,
   collapsed: false,
   reminders: [],
+  titleHistory: [],
   updatedAt: c.updatedAt || c.createdAt || null,
   ...c,
-  subtasks: (c.subtasks || []).map((t) => ({ dueDate: null, reminders: [], ...t })),
+  subtasks: (c.subtasks || []).map((t) => ({
+    dueDate: null,
+    reminders: [],
+    textHistory: [],
+    ...t,
+  })),
 });
 
 export function loadState() {

@@ -7,6 +7,7 @@ import CategoryPicker from './CategoryPicker.jsx';
 import ReminderSheet from './ReminderSheet.jsx';
 import SubtaskRow from './SubtaskRow.jsx';
 import { dueInfo as dueInfoOf } from '../lib/dates.js';
+import { aiEnabled, shortenText, describeError } from '../lib/ai.js';
 
 // One task. Collapsed: #number, checkbox, title (+ progress/due/reminder
 // chips) with a category color stripe. The subtask list folds behind a
@@ -38,7 +39,27 @@ export default function TaskCard({
   const [remindersOpen, setRemindersOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [shake, setShake] = useState(false);
+  const [shortening, setShortening] = useState(false);
   const renameRef = useRef(null);
+  const canRestore = (card.titleHistory || []).length > 0;
+
+  const doShorten = async () => {
+    setMenu(false);
+    setShortening(true);
+    try {
+      const short = await shortenText(card.title);
+      if (short === card.title) {
+        snack('Already about as short as it gets');
+      } else {
+        actions.setTitleWithHistory(card.id, short);
+        snack('Shortened', { label: 'Undo', onAction: () => actions.restoreTitle(card.id) });
+      }
+    } catch (err) {
+      snack(describeError(err));
+    } finally {
+      setShortening(false);
+    }
+  };
 
   useEffect(() => {
     if (renaming) renameRef.current?.select();
@@ -117,7 +138,11 @@ export default function TaskCard({
               className="w-full rounded border border-accent/50 bg-surface px-1.5 py-0.5 text-sm outline-none"
             />
           ) : (
-            <span className="break-words text-sm font-medium leading-snug">
+            <span
+              className={`break-words text-sm font-medium leading-snug ${
+                shortening ? 'animate-pulse opacity-50' : ''
+              }`}
+            >
               {number != null && (
                 <span className="mr-1.5 font-mono text-[11px] font-normal text-ink/35">
                   #{number}
@@ -216,6 +241,21 @@ export default function TaskCard({
                   Reminders{pendingReminders > 0 ? ` (${pendingReminders})` : '…'}
                 </MenuItem>
                 <div className="my-1 h-px bg-ink/10" />
+                {aiEnabled() && (
+                  <MenuItem onClick={doShorten}>
+                    <span className="text-accent">✦</span> Shorten
+                  </MenuItem>
+                )}
+                {canRestore && (
+                  <MenuItem
+                    onClick={() => {
+                      setMenu(false);
+                      actions.restoreTitle(card.id);
+                    }}
+                  >
+                    ↺ Restore previous title
+                  </MenuItem>
+                )}
                 <MenuItem
                   onClick={() => {
                     setMenu(false);

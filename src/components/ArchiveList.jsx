@@ -33,6 +33,17 @@ export default function ArchiveList({ mode }) {
     }
   };
 
+  const destroyAll = () => {
+    if (
+      window.confirm(
+        `Permanently delete all ${cards.length} task${cards.length === 1 ? '' : 's'} in the Deleted board? This can't be recovered later.`,
+      )
+    ) {
+      actions.destroyAll('deleted');
+      snack(`Deleted ${cards.length} forever`, { label: 'Undo', onAction: undo });
+    }
+  };
+
   const onDragEnd = ({ draggableId, source, destination }) => {
     if (!destination || destination.index === source.index) return;
     actions.moveArchiveCard(draggableId, destination.index);
@@ -57,6 +68,17 @@ export default function ArchiveList({ mode }) {
             {...provided.droppableProps}
             className="mx-auto h-full max-w-xl overflow-y-auto px-3 py-3"
           >
+            {mode === 'deleted' && (
+              <div className="mb-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={destroyAll}
+                  className="rounded-lg border border-accent/30 px-2.5 py-1.5 text-xs font-medium text-accent hover:bg-accent/10"
+                >
+                  Delete all forever
+                </button>
+              </div>
+            )}
             {cards.map((card, i) => (
               <Draggable key={card.id} draggableId={card.id} index={i}>
                 {(prov, snap) => (

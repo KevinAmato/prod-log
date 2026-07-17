@@ -37,11 +37,25 @@ export default function AiChat({ onClose }) {
 
   // Auto-grow the textarea so a big paste is actually visible/reviewable
   // before sending, instead of scrolling sideways inside a single line.
+  // Two traps here, both of which showed up as a stray scrollbar "line"
+  // next to the input:
+  //  1. box-sizing is border-box, so height must include the borders —
+  //     height = scrollHeight left clientHeight 2px short of scrollHeight
+  //     forever, i.e. a scrollbar that never goes away.
+  //  2. Chrome counts a WRAPPED PLACEHOLDER in scrollHeight, so an empty
+  //     box sized from scrollHeight inherits the placeholder's line count.
+  //     Empty input => no inline height at all; let rows=1 govern.
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
+    if (!input) {
+      el.style.height = '';
+      return;
+    }
+    const cs = getComputedStyle(el);
+    const borderY = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    el.style.height = `${Math.min(el.scrollHeight + borderY, 120)}px`;
   }, [input]);
 
   const send = async (raw) => {
@@ -228,7 +242,7 @@ export default function AiChat({ onClose }) {
                 send();
               }
             }}
-            placeholder={listening ? 'Listening…' : 'Type or paste — Shift+Enter for a new line'}
+            placeholder={listening ? 'Listening…' : 'Type or paste…'}
             disabled={busy}
             className="min-w-0 flex-1 resize-none rounded-2xl border border-ink/15 bg-surface px-3.5 py-2 text-base leading-snug outline-none placeholder:text-ink/35 focus:border-accent sm:text-sm"
           />

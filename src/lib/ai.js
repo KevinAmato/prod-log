@@ -181,6 +181,26 @@ export function extractJson(text) {
   return null;
 }
 
+// One-shot rewrite used by the ⋯ → Shorten action on tasks and subtasks.
+// Deliberately NOT the assistant's action protocol: there's no board context
+// and nothing to execute — just text in, tighter text out. JSON (rather than
+// a bare string) so a chatty model's preamble can't end up as the title.
+export async function shortenText(text) {
+  const settings = getAiSettings();
+  const system = `You shorten a single task title to its essential keywords.
+
+RULES:
+- Keep the meaning and the action. Keep proper nouns, names, numbers and dates.
+- Drop filler: articles, politeness, hedging, obvious context.
+- Never invent detail that isn't in the input. Never ask a question.
+- Aim for under 40 characters. If the input is already terse, return it unchanged.
+- Reply with ONLY this JSON and nothing else: {"short":"<shortened title>"}`;
+  const raw = await chat(settings, system, [{ role: 'user', content: String(text) }]);
+  const short = (extractJson(raw)?.short || '').trim();
+  if (!short) throw aiError(422, "The model didn't return a shortened title.");
+  return short;
+}
+
 export function describeError(err) {
   if (err?.status === 401) return 'The API key was rejected — check it in AI settings.';
   if (err?.status === 404) return 'That model id was not found for this provider.';

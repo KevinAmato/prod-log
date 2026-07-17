@@ -13,14 +13,21 @@ export default function QuickAdd({
   autoOpen = false,
   openSignal = 0, // bump to open from outside (tap on empty column space)
   onClose,
+  onOpenChange, // lets the parent know if a tap means "open" or "cancel"
   compact = false,
 }) {
   const [open, setOpen] = useState(autoOpen);
   const [val, setVal] = useState('');
   const ref = useRef(null);
+  const openChangeRef = useRef(onOpenChange);
+  openChangeRef.current = onOpenChange;
 
   useEffect(() => {
     if (open) ref.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    openChangeRef.current?.(open);
   }, [open]);
 
   useEffect(() => {
