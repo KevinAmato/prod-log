@@ -150,8 +150,26 @@ export async function runAssistant({ state, actions, undo, history }) {
     let rawReply = await chat(settings, system, history);
     let parsed = extractJson(rawReply);
 
-    // extractJson found nothing parseable — surface that distinctly rather
-    // than silently treating a formatting slip as "no action needed."
+    // The model answered but not with parseable JSON — a chatty preamble, a
+    // refusal sentence, stray markdown. One corrective nudge (cheaper and far
+    // less annoying than making the user rephrase) recovers the vast majority
+    // of these; only if it STILL isn't JSON do we surface the format error.
+    if (!parsed && rawReply?.trim()) {
+      rawReply = await chat(settings, system, [
+        ...history,
+        { role: 'assistant', content: rawReply },
+        {
+          role: 'user',
+          content:
+            'Reply again with ONLY the JSON object your instructions describe ' +
+            '({"reply": "...", "actions": [...]}) — no text before or after it.',
+        },
+      ]);
+      parsed = extractJson(rawReply);
+    }
+
+    // Still unparseable after the retry — surface it distinctly rather than
+    // silently treating a formatting slip as "no action needed."
     if (!parsed && rawReply?.trim()) {
       logAiExchange({ ...meta, rawReply, receipts: [], parseFailed: true });
       return {

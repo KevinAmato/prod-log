@@ -39,7 +39,7 @@ export default function AiSettingsSheet({ onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
-        className="relative w-full max-w-md rounded-t-2xl border border-ink/10 bg-paper p-4 shadow-2xl sm:rounded-2xl"
+        className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-ink/10 bg-paper p-4 shadow-2xl sm:rounded-2xl"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
       >
         <h3 className="text-sm font-semibold">AI assistant</h3>
@@ -67,6 +67,19 @@ export default function AiSettingsSheet({ onClose, onSaved }) {
           type="password"
           value={cfg.keys[cfg.provider] || ''}
           onChange={(e) => setKey(e.target.value)}
+          // Enter/"done" saves and drops the keyboard — on iOS the on-screen
+          // keyboard otherwise covers the Save button with no way to reach it.
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (cfg.keys[cfg.provider] || '').trim()) {
+              e.preventDefault();
+              e.target.blur();
+              save();
+            }
+          }}
+          enterKeyHint="done"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder={provider?.keyHint}
           className="mt-1 w-full rounded-lg border border-ink/15 bg-surface px-2.5 py-2 font-mono text-sm outline-none focus:border-accent"
         />

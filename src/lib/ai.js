@@ -208,8 +208,17 @@ RULES:
 
 export function describeError(err) {
   if (err?.status === 401) return 'The API key was rejected — check it in AI settings.';
+  if (err?.status === 403)
+    return 'The provider refused this key (403) — it may be disabled, out of credit, or blocked for browser use.';
   if (err?.status === 404) return 'That model id was not found for this provider.';
   if (err?.status === 429) return 'Rate limited by the provider — try again in a moment.';
-  if (err?.message?.includes('Failed to fetch')) return 'Network error — are you offline?';
+  // A failed fetch is worded differently per browser — Chrome "Failed to
+  // fetch", Safari/iOS "Load failed", Firefox "NetworkError…" — and all mean
+  // the request never completed. On iOS the usual culprits are a VPN, a Safari
+  // content blocker, or a key pasted with stray characters (Mail/Notes often
+  // append a newline) that made the request un-sendable.
+  if (/failed to fetch|load failed|networkerror/i.test(err?.message || '')) {
+    return "Couldn't reach the AI provider. Check your connection and any VPN or content blocker, then re-enter your API key (no spaces or line breaks).";
+  }
   return err?.message || 'The AI request failed.';
 }

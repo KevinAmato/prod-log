@@ -209,7 +209,7 @@ export default function Header({
                   }}
                   className={item}
                 >
-                  👥 Workspaces &amp; sharing{sharing ? ' ✓' : '…'}
+                  👥 Workspaces, sharing &amp; sync{sharing ? ' ✓' : '…'}
                 </button>
                 <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-ink/80 hover:bg-ink/5">
                   <input
