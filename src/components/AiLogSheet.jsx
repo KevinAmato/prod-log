@@ -69,11 +69,16 @@ export default function AiLogSheet({ onClose }) {
                       <div>
                         <p className="font-medium text-ink/55">Receipts</p>
                         <ul className="mt-1 space-y-0.5">
-                          {e.receipts.map((r, j) => (
-                            <li key={j} className={r.startsWith('✓') ? 'text-emerald-600' : 'text-red-600'}>
-                              {r}
-                            </li>
-                          ))}
+                          {e.receipts.map((r, j) => {
+                            // Receipts are logged as { text, destructive }
+                            // objects; tolerate a bare string too (older logs).
+                            const t = typeof r === 'string' ? r : r?.text || '';
+                            return (
+                              <li key={j} className={t.startsWith('✓') ? 'text-emerald-600' : 'text-red-600'}>
+                                {t}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}

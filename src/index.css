@@ -28,6 +28,18 @@ body {
   overscroll-behavior-y: none; /* no pull-to-refresh eating a swipe on mobile */
 }
 
+/* iOS Safari auto-zooms when focusing any form control under 16px and never
+   zooms back out. Force 16px on touch-width screens so there's nothing to
+   zoom into — keeps pinch-zoom intact (unlike a maximum-scale viewport hack).
+   !important is needed to beat Tailwind's text-sm utility on these elements. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Blocked "mark done" feedback — the card wiggles to say "subtasks first". */
 @keyframes cardshake {
   0%,
