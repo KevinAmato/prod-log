@@ -11,6 +11,7 @@ export default function QuickAdd({
   placeholder = 'Task title',
   addLabel = '+ Add task',
   autoOpen = false,
+  openSignal = 0, // bump to open from outside (tap on empty column space)
   onClose,
   compact = false,
 }) {
@@ -21,6 +22,10 @@ export default function QuickAdd({
   useEffect(() => {
     if (open) ref.current?.focus();
   }, [open]);
+
+  useEffect(() => {
+    if (openSignal) setOpen(true);
+  }, [openSignal]);
 
   const commit = (text) => {
     const items = String(text)

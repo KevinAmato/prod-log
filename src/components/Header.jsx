@@ -32,7 +32,12 @@ export default function Header({ view, setView, onAiChanged, onStartCleanup }) {
   const item = 'block w-full px-3 py-2 text-left text-sm text-ink/80 hover:bg-ink/5';
 
   return (
-    <header className="shrink-0 border-b border-ink/10 bg-paper/95 backdrop-blur">
+    // relative z-40 keeps the menu + its click-away scrim painting ABOVE the
+    // board. No backdrop-blur: besides being useless here (nothing scrolls
+    // behind the header), backdrop-filter turns the header into the containing
+    // block for fixed descendants — the full-screen scrim would collapse to
+    // the header strip and outside-clicks could never close the menu.
+    <header className="relative z-40 shrink-0 border-b border-ink/10 bg-paper">
       <div className="mx-auto flex max-w-5xl items-center gap-2 px-3 pt-2.5">
         <h1 className="flex-1 text-base font-bold tracking-tight">
           ProdLog<span className="text-accent">.</span>
@@ -78,7 +83,7 @@ export default function Header({ view, setView, onAiChanged, onStartCleanup }) {
                   }}
                   className={item}
                 >
-                  🧹 Cleanup schedule{state.cleanup?.everyDays ? ' ✓' : '…'}
+                  🧹 Cleanup schedule{state.cleanups?.length ? ' ✓' : '…'}
                 </button>
                 <button
                   type="button"

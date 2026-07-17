@@ -37,13 +37,34 @@ export const emptyState = () => ({
     filterCategoryId: null, // board-level: only show this color (null = all)
     filterOverdue: false, // board-level: only show overdue cards
   },
-  // Recurring cleanup review (Menu → Cleanup schedule). Syncs like the rest.
-  cleanup: { everyDays: null, time: '18:00', nextAt: null },
+  // Recurring cleanup reviews (Menu → Cleanup schedule). Several can coexist,
+  // each optionally scoped to categories. Syncs like the rest.
+  cleanups: [],
   // Sync merge metadata: lastModified stamps every commit; tombstones record
   // permanent deletions so another device's copy can't resurrect them.
   lastModified: null,
   tombstones: { cards: [], columns: [] },
 });
+
+// cleanups: array shape, migrating the short-lived single-schedule `cleanup`.
+function normalizeCleanups(parsed) {
+  if (Array.isArray(parsed.cleanups)) {
+    return parsed.cleanups.map((c) => ({ categoryIds: [], ...c }));
+  }
+  const old = parsed.cleanup;
+  if (old?.everyDays) {
+    return [
+      {
+        id: 'cl-migrated',
+        everyDays: old.everyDays,
+        time: old.time || '18:00',
+        nextAt: old.nextAt || null,
+        categoryIds: [],
+      },
+    ];
+  }
+  return [];
+}
 
 // Older blobs predate dueDate/reminders/categoryId/collapsed/updatedAt —
 // default them in.
@@ -78,7 +99,8 @@ export function loadState() {
           ? parsed.categories
           : base.categories,
       prefs: { ...base.prefs, ...(parsed.prefs || {}) },
-      cleanup: { ...base.cleanup, ...(parsed.cleanup || {}) },
+      cleanups: normalizeCleanups(parsed),
+      cleanup: undefined, // legacy single-schedule key — dropped on save
       tombstones: {
         cards: parsed.tombstones?.cards || [],
         columns: parsed.tombstones?.columns || [],
@@ -126,7 +148,8 @@ export function parseImportedBlob(text) {
         ? parsed.categories
         : base.categories,
     prefs: { ...base.prefs, ...(parsed.prefs || {}) },
-    cleanup: { ...base.cleanup, ...(parsed.cleanup || {}) },
+    cleanups: normalizeCleanups(parsed),
+    cleanup: undefined,
     tombstones: {
       cards: parsed.tombstones?.cards || [],
       columns: parsed.tombstones?.columns || [],

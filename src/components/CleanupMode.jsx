@@ -11,16 +11,22 @@ import TaskCard from './TaskCard.jsx';
 // real TaskCard in spotlight mode — checkbox, subtasks, menus all work — so
 // completing it here IS completing it, and the review auto-advances when the
 // task leaves the board.
-export default function CleanupMode({ onClose }) {
+// `scope`: { categoryIds: string[]|null, scheduleIds: string[] } — null
+// categoryIds = all tasks; scheduleIds are the schedules this run satisfies
+// (their nextAt advances on exit/finish).
+export default function CleanupMode({ onClose, scope }) {
   const { state, actions } = useStore();
   const numbers = useMemo(() => numberCards(state), [state]);
+  const catIds = scope?.categoryIds?.length ? scope.categoryIds : null;
 
   // Snapshot the queue once — edits during review don't reshuffle it.
   const [queue] = useState(() => {
     const ids = [];
     for (const col of state.columns) {
       for (const c of state.cards) {
-        if (c.status === 'live' && c.columnId === col.id) ids.push(c.id);
+        if (c.status !== 'live' || c.columnId !== col.id) continue;
+        if (catIds && !catIds.includes(c.categoryId)) continue;
+        ids.push(c.id);
       }
     }
     return ids;
@@ -47,12 +53,14 @@ export default function CleanupMode({ onClose }) {
     : null;
 
   // Leaving the review — by finishing OR exiting — counts as this cycle's
-  // cleanup: advance the schedule so the banner stands down.
+  // cleanup for the schedule(s) that launched it: advance them so the banner
+  // stands down.
   const finish = () => {
-    if (state.cleanup?.everyDays) {
-      actions.setCleanup({
-        nextAt: computeNextAt(state.cleanup.everyDays, state.cleanup.time),
-      });
+    for (const id of scope?.scheduleIds || []) {
+      const sch = (state.cleanups || []).find((c) => c.id === id);
+      if (sch?.everyDays) {
+        actions.updateCleanup(id, { nextAt: computeNextAt(sch.everyDays, sch.time) });
+      }
     }
     onClose();
   };

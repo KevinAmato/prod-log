@@ -15,7 +15,8 @@ export default function App() {
   const { storageFull, undo, redo } = useStore();
   const [view, setView] = useState('live'); // 'live' | 'done' | 'deleted'
   const [chatOpen, setChatOpen] = useState(false);
-  const [cleanupOpen, setCleanupOpen] = useState(false);
+  // null = closed; else { categoryIds: string[]|null, scheduleIds: string[] }
+  const [cleanupScope, setCleanupScope] = useState(null);
   // Bumped by Header when AI settings are saved, so the FAB appears instantly.
   const [aiRev, setAiRev] = useState(0);
 
@@ -48,7 +49,9 @@ export default function App() {
           view={view}
           setView={setView}
           onAiChanged={() => setAiRev((r) => r + 1)}
-          onStartCleanup={() => setCleanupOpen(true)}
+          onStartCleanup={(scope) =>
+            setCleanupScope(scope || { categoryIds: null, scheduleIds: [] })
+          }
         />
 
         {storageFull && (
@@ -58,7 +61,7 @@ export default function App() {
           </div>
         )}
 
-        <CleanupBanner onStart={() => setCleanupOpen(true)} />
+        <CleanupBanner onStart={(scope) => setCleanupScope(scope)} />
 
         <main className="min-h-0 flex-1">
           {view === 'live' ? <Board /> : <ArchiveList mode={view} />}
@@ -83,7 +86,9 @@ export default function App() {
         </button>
       )}
       {chatOpen && <AiChat onClose={() => setChatOpen(false)} />}
-      {cleanupOpen && <CleanupMode onClose={() => setCleanupOpen(false)} />}
+      {cleanupScope && (
+        <CleanupMode scope={cleanupScope} onClose={() => setCleanupScope(null)} />
+      )}
     </SnackProvider>
   );
 }

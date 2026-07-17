@@ -21,6 +21,7 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
   const snack = useSnack();
   const [menu, setMenu] = useState(false); // 'sort' | 'filter' | 'more' | false
   const [renaming, setRenaming] = useState(false);
+  const [addSignal, setAddSignal] = useState(0); // tap-on-empty-space → quick add
   const renameRef = useRef(null);
 
   const filter = column.filter || {};
@@ -247,13 +248,17 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
         </button>
       )}
 
-      {/* ── Cards (droppable) ─────────────────────────────────────────── */}
+      {/* ── Cards (droppable; tapping empty space below the cards opens the
+             quick-add, so capture never needs the exact button) ─────────── */}
       <Droppable droppableId={column.id}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`min-h-[40px] flex-1 overflow-y-auto px-2 py-2 transition-colors ${
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setAddSignal((s) => s + 1);
+            }}
+            className={`min-h-[40px] flex-1 cursor-pointer overflow-y-auto px-2 py-2 transition-colors ${
               snapshot.isDraggingOver ? 'rounded-xl bg-accent/[0.06]' : ''
             }`}
           >
@@ -274,8 +279,8 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
             ))}
             {provided.placeholder}
             {cards.length === 0 && (
-              <p className="px-2 py-3 text-center text-xs text-ink/30">
-                {filterActive ? 'No tasks match the filter' : 'No tasks yet'}
+              <p className="pointer-events-none px-2 py-3 text-center text-xs text-ink/30">
+                {filterActive ? 'No tasks match the filter' : 'No tasks yet — tap to add'}
               </p>
             )}
           </div>
@@ -284,7 +289,10 @@ export default function Column({ column, cards, columns, canDelete, numbers }) {
 
       {/* ── Quick add (pinned) ────────────────────────────────────────── */}
       <div className="px-2 pb-2">
-        <QuickAdd onAdd={(titles) => actions.addCards(column.id, titles)} />
+        <QuickAdd
+          openSignal={addSignal}
+          onAdd={(titles) => actions.addCards(column.id, titles)}
+        />
       </div>
     </section>
   );

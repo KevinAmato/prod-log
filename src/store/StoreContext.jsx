@@ -444,9 +444,16 @@ export function StoreProvider({ children }) {
         setState((s) => ({ ...s, prefs: { ...s.prefs, [key]: value } }));
       },
 
-      // ── Cleanup schedule ──────────────────────────────────────────────
-      setCleanup(patch) {
-        setState((s) => ({ ...s, cleanup: { ...s.cleanup, ...patch } }));
+      // ── Cleanup schedules ─────────────────────────────────────────────
+      setCleanups(list) {
+        setState((s) => ({ ...s, cleanups: list }));
+      },
+
+      updateCleanup(id, patch) {
+        setState((s) => ({
+          ...s,
+          cleanups: (s.cleanups || []).map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        }));
       },
 
       // ── Backup / restore ──────────────────────────────────────────────
