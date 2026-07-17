@@ -250,7 +250,7 @@ export default function Header({
                       ? 'Drop a task here to delete it'
                       : undefined
                 }
-                className={`rounded-lg py-1.5 text-sm font-medium transition-all ${
+                className={`w-full rounded-lg py-1.5 text-sm font-medium transition-all ${
                   isOver
                     ? 'scale-105 bg-accent text-white shadow-md'
                     : view === key

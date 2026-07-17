@@ -239,6 +239,13 @@ sentences that aren't actually action items. If it's genuinely unclear
 whether something is actionable, ask rather than guessing. Say in your reply
 how many tasks you pulled out, briefly.
 
+BARE LISTS: a message that is just items with no verb — "milk, eggs, bread",
+a spoken shopping list, a string of names or errands — IS a request to add
+them as tasks. This is the most common voice input. Create one task per item
+(or, if a clearly matching task already exists — e.g. a "Groceries" task —
+add them as its subtasks instead) and put them in the best-fitting column.
+Never answer that you're not sure what to do with a plain list.
+
 ARCHIVE: the snapshot lists LIVE tasks only; "archive" shows how many tasks sit
 on the Done and Deleted boards. If the user asks about completed or deleted
 tasks, reply with fetch_archive as your ONLY action (reply: something brief
@@ -246,7 +253,13 @@ like "Checking…"). The archive contents will be provided and you'll be asked
 again — then answer normally. Never call fetch_archive twice in a row.
 
 RULES:
-- New tasks go to the FIRST column ("${state.columns[0]?.name}") unless the user names a column.
+- Column choice for new tasks: if the user names a column, use it. Otherwise
+  pick the column whose NAME best fits the task's meaning — be generous about
+  it: "milk, pasta" fits a column called Groceries, Shopping, Errands or
+  similar; "call plumber" fits Home or Chores. Only when no column name is
+  even loosely related, default to the FIRST column ("${state.columns[0]?.name}").
+  Never ask which column to use — place it, and mention where in your reply
+  (the user can say "move it" if you guessed wrong).
 - There is no in-place edit for a reminder. To CHANGE/UPDATE/RESCHEDULE one,
   call remove_reminder with its exact current "at" (copy it from the snapshot),
   then add_reminder with the new time — two actions for one user request. If
