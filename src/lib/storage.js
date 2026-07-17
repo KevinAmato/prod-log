@@ -10,15 +10,24 @@ import { activeWorkspace, boardStorageKey } from './workspaces.js';
 
 const STORAGE_KEY = boardStorageKey(activeWorkspace().id);
 
-// Color-code categories: fixed palette, user-renamable labels.
+// Color-code categories: a user-managed set (create/rename/recolor/delete),
+// each a colored dot + label. New boards start with these three; existing
+// boards keep whatever they already have (see loadState).
 export const DEFAULT_CATEGORIES = [
-  { id: 'cat-red', color: '#ef4444', name: 'Urgent' },
-  { id: 'cat-amber', color: '#f59e0b', name: 'Important' },
-  { id: 'cat-blue', color: '#3b82f6', name: 'Deep work' },
-  { id: 'cat-green', color: '#10b981', name: 'Quick win' },
-  { id: 'cat-violet', color: '#8b5cf6', name: 'Waiting' },
-  { id: 'cat-pink', color: '#ec4899', name: 'Personal' },
+  { id: 'cat-important', color: '#f59e0b', name: 'Important' },
+  { id: 'cat-blocked', color: '#ef4444', name: 'Blocked' },
+  { id: 'cat-quickwin', color: '#10b981', name: 'Quick win' },
 ];
+
+// Colors offered when creating/recoloring a category. A new category grabs the
+// first palette color not already in use, so fresh categories look distinct.
+export const CATEGORY_PALETTE = [
+  '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
+  '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16',
+];
+
+// Hard cap on how many categories a board can have.
+export const MAX_CATEGORIES = 10;
 
 export const emptyState = () => ({
   // Column order = array order. Cards reference columns by id so renames are free.
@@ -49,7 +58,7 @@ export const emptyState = () => ({
   // Sync merge metadata: lastModified stamps every commit; tombstones record
   // permanent deletions so another device's copy can't resurrect them.
   lastModified: null,
-  tombstones: { cards: [], columns: [] },
+  tombstones: { cards: [], columns: [], categories: [] },
 });
 
 // cleanups: array shape, migrating the short-lived single-schedule `cleanup`.
@@ -133,6 +142,7 @@ export function loadState() {
       tombstones: {
         cards: parsed.tombstones?.cards || [],
         columns: parsed.tombstones?.columns || [],
+        categories: parsed.tombstones?.categories || [],
       },
     };
   } catch (err) {

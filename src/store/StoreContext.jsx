@@ -12,6 +12,8 @@ import {
   saveState,
   newId,
   parseImportedBlob,
+  CATEGORY_PALETTE,
+  MAX_CATEGORIES,
 } from '../lib/storage.js';
 
 const StoreContext = createContext(null);
@@ -548,6 +550,26 @@ export function StoreProvider({ children }) {
       },
 
       // ── Categories (color codes) ──────────────────────────────────────
+      // A user-managed set now (create/rename/recolor/delete), capped at
+      // MAX_CATEGORIES. Returns the new id, or null if the cap is hit.
+      addCategory(name, color) {
+        const id = `cat-${newId()}`;
+        setState((s) => {
+          if ((s.categories || []).length >= MAX_CATEGORIES) return s;
+          const used = new Set(s.categories.map((c) => c.color));
+          const nextColor =
+            color || CATEGORY_PALETTE.find((c) => !used.has(c)) || CATEGORY_PALETTE[0];
+          return {
+            ...s,
+            categories: [
+              ...s.categories,
+              { id, color: nextColor, name: name?.trim() || 'New category' },
+            ],
+          };
+        });
+        return id;
+      },
+
       renameCategory(id, name) {
         const clean = name.trim();
         if (!clean) return;
@@ -555,6 +577,43 @@ export function StoreProvider({ children }) {
           ...s,
           categories: s.categories.map((c) => (c.id === id ? { ...c, name: clean } : c)),
         }));
+      },
+
+      setCategoryColor(id, color) {
+        setState((s) => ({
+          ...s,
+          categories: s.categories.map((c) => (c.id === id ? { ...c, color } : c)),
+        }));
+      },
+
+      // Delete a category: drop it, clear it off every card / column filter /
+      // cleanup that referenced it, and tombstone the id so a synced device
+      // can't resurrect it. One commit → one undo.
+      removeCategory(id) {
+        setState((s) => {
+          if (!s.categories.some((c) => c.id === id)) return s;
+          const at = new Date().toISOString();
+          return {
+            ...s,
+            categories: s.categories.filter((c) => c.id !== id),
+            cards: s.cards.map((c) =>
+              c.categoryId === id ? { ...c, categoryId: null, updatedAt: at } : c,
+            ),
+            columns: s.columns.map((col) =>
+              col.filter?.categoryId === id
+                ? { ...col, filter: col.filter.overdue ? { overdue: true } : undefined }
+                : col,
+            ),
+            cleanups: (s.cleanups || []).map((cl) => ({
+              ...cl,
+              categoryIds: (cl.categoryIds || []).filter((k) => k !== id),
+            })),
+            tombstones: {
+              ...(s.tombstones || { cards: [], columns: [], categories: [] }),
+              categories: [...(s.tombstones?.categories || []), { id, at }].slice(-100),
+            },
+          };
+        });
       },
 
       // ── Prefs ─────────────────────────────────────────────────────────

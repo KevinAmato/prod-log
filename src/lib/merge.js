@@ -24,8 +24,13 @@ export function mergeStates(a, b) {
     ...(win.tombstones?.columns || []),
     ...(lose.tombstones?.columns || []),
   ]).slice(-100);
+  const tombCats = dedupe([
+    ...(win.tombstones?.categories || []),
+    ...(lose.tombstones?.categories || []),
+  ]).slice(-100);
   const deadCard = new Set(tombCards.map((t) => t.id));
   const deadCol = new Set(tombCols.map((t) => t.id));
+  const deadCat = new Set(tombCats.map((t) => t.id));
 
   // ── Columns: winner's list, plus loser-only survivors appended ────────
   const columns = win.columns.filter((c) => !deadCol.has(c.id));
@@ -53,13 +58,23 @@ export function mergeStates(a, b) {
     colIds.has(c.columnId) ? c : { ...c, columnId: columns[0].id },
   );
 
+  // ── Categories: winner's set, plus loser-only additions appended ──────
+  // Same shape as columns so a category one device created isn't lost when
+  // the other device happens to win the merge; tombstones keep a deletion
+  // from resurrecting. A card pointing at a gone category just shows no
+  // color (every reader uses categories.find(...)?. — never assumes a hit).
+  const categories = (win.categories || []).filter((k) => !deadCat.has(k.id));
+  for (const k of lose.categories || []) {
+    if (!deadCat.has(k.id) && !categories.some((x) => x.id === k.id)) categories.push(k);
+  }
+
   return {
     ...win,
     columns,
     cards: fixed,
-    categories: win.categories,
+    categories,
     prefs: win.prefs,
-    tombstones: { cards: tombCards, columns: tombCols },
+    tombstones: { cards: tombCards, columns: tombCols, categories: tombCats },
   };
 }
 

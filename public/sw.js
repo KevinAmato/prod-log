@@ -3,7 +3,7 @@
 // Also: reminder notifications while the app is closed, via Periodic Background
 // Sync reading the IndexedDB mirror the app maintains (SWs can't read
 // localStorage — see src/lib/reminders.js).
-const CACHE = 'prodlog-v6'; // v6: workspaces + sharing (collaboration)
+const CACHE = 'prodlog-v7'; // v7: user-managed categories (create/delete, max 10)
 
 self.addEventListener('install', () => self.skipWaiting());
 

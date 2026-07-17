@@ -8,7 +8,7 @@
 // NUMBER from the snapshot ("7" or "7.2"), so resolution is exact. Fuzzy title
 // matching exists as a fallback for models that reference by name anyway.
 
-import { newId } from './storage.js';
+import { newId, MAX_CATEGORIES } from './storage.js';
 import { toLocalInput } from './reminders.js';
 import { computeNextAt } from './cleanup.js';
 import { chat, extractJson, getAiSettings, activeModel, describeError } from './ai.js';
@@ -247,7 +247,9 @@ ACTIONS:
 - {"type":"add_reminder","task":n or "n.m","at":"YYYY-MM-DDTHH:mm"}
 - {"type":"remove_reminder","task":n or "n.m","at":"YYYY-MM-DDTHH:mm"}   // "at" must exactly match an existing reminder from the snapshot above
 - {"type":"set_category","task":n,"category":string or null}
-- {"type":"rename_category","category":string,"newName":string}   // categories are a fixed set of 6 colors — this renames what one MEANS, doesn't add a 7th
+- {"type":"create_category","name":string,"color"?:"#rrggbb"}   // add a new color category (the board holds at most ${MAX_CATEGORIES}); color optional — one is auto-assigned
+- {"type":"rename_category","category":string,"newName":string}
+- {"type":"delete_category","category":string}   // removes it and clears it off every task that used it
 - {"type":"create_column","name":string}
 - {"type":"rename_column","column":string,"newName":string}
 - {"type":"filter_column","column":string or "all","category":string or null,"overdue"?:boolean}
@@ -303,6 +305,10 @@ RULES:
 - You CANNOT sort tasks. If asked to sort, say the column menu (⇅) does that.
 - You cannot permanently destroy anything; "delete" moves to the Deleted board.
 - Category and column names may be approximate — match to the snapshot.
+- Categories are user-managed (up to ${MAX_CATEGORIES}). If the user asks to add
+  categories, use create_category — do NOT refuse or claim they're fixed. If
+  they want a task in a category that doesn't exist yet, create_category first,
+  then set_category (or create_task with that category name).
 - If the request is ambiguous, ask a clarifying question with empty actions.
 - If the snapshot's "note" field says tasks were omitted for length, and the
   user's request seems to depend on one of those omitted tasks, say so rather
@@ -602,6 +608,24 @@ export function executeActions(rawActions, snapshot, state, actions, undo) {
           break;
         }
 
+        case 'create_category': {
+          if (!a.name?.trim()) {
+            fail('create_category without a name');
+            break;
+          }
+          if (categories.length >= MAX_CATEGORIES) {
+            fail(`already at the ${MAX_CATEGORIES}-category limit — delete one first`);
+            break;
+          }
+          const name = a.name.trim();
+          const color = /^#[0-9a-fA-F]{6}$/.test(a.color || '') ? a.color : undefined;
+          const newCatId = actions.addCategory(name, color);
+          // Track locally so a later set_category in this same batch resolves it.
+          categories = [...categories, { id: newCatId, name, color: color || '#888888' }];
+          ok(`Added category "${name}"`);
+          break;
+        }
+
         case 'rename_category': {
           const c = resolveCategory(a.category, categories);
           if (!c.hit) {
@@ -617,6 +641,18 @@ export function executeActions(rawActions, snapshot, state, actions, undo) {
             k.id === c.hit.id ? { ...k, name: a.newName.trim() } : k,
           );
           ok(`Renamed category "${c.hit.name}" → "${a.newName.trim()}"`);
+          break;
+        }
+
+        case 'delete_category': {
+          const c = resolveCategory(a.category, categories);
+          if (!c.hit) {
+            fail(`delete category: ${c.error}`);
+            break;
+          }
+          actions.removeCategory(c.hit.id);
+          categories = categories.filter((k) => k.id !== c.hit.id);
+          ok(`Deleted category "${c.hit.name}"`, true);
           break;
         }
 
