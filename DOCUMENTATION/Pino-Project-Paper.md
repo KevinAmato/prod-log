@@ -1,11 +1,11 @@
-# ProdLog — Project Paper
+# Pino — Project Paper
 
 **A mobile-first personal task board. Capture product work in seconds, break it down, check it off.**
 
 | | |
 |---|---|
-| **Status** | v1 rebuild (July 2026) — replaced the earlier "Diligence" decision-funnel app |
-| **Repo** | https://github.com/KevinAmato/prod-log (public) |
+| **Status** | Renamed ProdLog → Pino (July 2026); v1 rebuild (July 2026) replaced the earlier "Diligence" decision-funnel app |
+| **Repo** | https://github.com/KevinAmato/prod-log (public) — technical repo/URL slug still "prod-log", pending a decision on whether to rename it too |
 | **Live app** | https://kevinamato.github.io/prod-log/ |
 | **Author** | Kevin Amato |
 | **Stack** | React + Vite + Tailwind, static SPA, `localStorage` — no backend, no accounts |

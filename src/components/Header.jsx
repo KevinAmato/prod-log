@@ -40,7 +40,7 @@ export default function Header({ view, setView, onAiChanged, onStartCleanup }) {
     <header className="relative z-40 shrink-0 border-b border-ink/10 bg-paper">
       <div className="mx-auto flex max-w-5xl items-center gap-2 px-3 pt-2.5">
         <h1 className="flex-1 text-base font-bold tracking-tight">
-          ProdLog<span className="text-accent">.</span>
+          Pino<span className="text-accent">.</span>
         </h1>
 
         <button

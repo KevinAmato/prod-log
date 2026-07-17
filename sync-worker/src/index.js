@@ -1,4 +1,4 @@
-// ProdLog sync — single-blob store keyed by a secret sync key.
+// Pino sync — single-blob store keyed by a secret sync key.
 //
 // Model: the app is local-first; this Worker is just the relay between a
 // user's devices. Auth == knowledge of the sync key (a 128-bit+ random string

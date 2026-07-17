@@ -149,7 +149,7 @@ export function exportStateBlob(state) {
 export function parseImportedBlob(text) {
   const parsed = JSON.parse(text);
   if (!parsed || !Array.isArray(parsed.columns) || !Array.isArray(parsed.cards)) {
-    throw new Error('That file does not look like a ProdLog export.');
+    throw new Error('That file does not look like a Pino export.');
   }
   const base = emptyState();
   return {

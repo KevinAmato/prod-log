@@ -1,6 +1,6 @@
 {
-  "name": "ProdLog",
-  "short_name": "ProdLog",
+  "name": "Pino",
+  "short_name": "Pino",
   "description": "Mobile-first personal task board — capture, break down, check off.",
   "start_url": ".",
   "scope": ".",

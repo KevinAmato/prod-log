@@ -45,7 +45,7 @@ export function cleanupMirrorEntries(cleanups, categories, now = new Date()) {
     .map((c) => ({
       id: `cleanup-${c.id}-${c.nextAt}`,
       at: c.nextAt,
-      title: 'ProdLog',
+      title: 'Pino',
       body: `🧹 Time to clean up${scopeLabel(c, categories)}`,
     }));
 }

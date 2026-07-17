@@ -69,7 +69,7 @@ export default function QuickVoice() {
         )}
         <button
           type="button"
-          title={listening ? 'Stop listening' : 'Speak to ProdLog'}
+          title={listening ? 'Stop listening' : 'Speak to Pino'}
           onClick={micTap}
           className={`relative flex items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 active:scale-95 ${
             listening ? 'bg-red-500' : 'bg-accent'

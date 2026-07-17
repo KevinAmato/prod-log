@@ -1,53 +1,32 @@
-# Diligence — an audit trail for product judgment
+# Pino
 
-A single-user **product-decision funnel**: every product decision passes through 9
-lifecycle gates, and at each gate the tool asks for evidence. You either provide it
-(stored, timestamped) or explicitly skip it (also stored, timestamped, and flagged
-in the backlog). The result is a living backlog of decisions, each with a complete,
-visible evidence trail.
+A mobile-first personal task board. Capture product work in seconds, break it
+down into subtasks, check it off — from your phone or desktop, in sync.
 
-Built per `Diligence_PRD.md` and `Diligence_Implementation_Plan.md`.
+Full product write-up: [`DOCUMENTATION/Pino-Project-Paper.md`](DOCUMENTATION/Pino-Project-Paper.md).
 
-## Adaptive funnel (per decision)
+> Formerly **ProdLog**, and before that a completely different app called
+> **Diligence** (a product-decision funnel — see
+> `DOCUMENTATION/Diligence-Project-Paper-ARCHIVED.md` and the
+> `diligence-final` branch). The current task-board product has no relation
+> to either beyond sharing this repo and some infrastructure.
 
-The gate set is **not** fixed across decisions. `src/config/gates.js` composes a
-base spine with two overlays:
+## What it does
 
-- **PM archetype** (set in onboarding / Settings): a B2C / marketplace or growth
-  PM gets analytics- & experiment-tilted validation/sizing/success gates; a B2B
-  SaaS PM keeps qualitative user-evidence gates.
-- **Decision type**: `pricing change` adds revenue/margin, price-testing,
-  migration & comms gates; `kill-or-deprecate` swaps in a sunset/migration gate;
-  `partnership` adds due-diligence and exit-terms gates.
-
-The composed funnel is **snapshotted onto each decision at creation** (`decision.gates`)
-and frozen for its life — so changing your archetype later, or editing the
-config, never reshuffles a decision already in flight. Audit-trail integrity over
-config churn.
-
-## Deploy (free, BYOK for everyone)
-
-The app is a static SPA, so giving others access costs you nothing — each person
-brings their own Anthropic key (or runs key-free on the static questions), and
-their data stays in their own browser.
-
-- **Cloudflare Pages / Netlify:** connect the repo, build `npm run build`, output
-  `dist`, base path `/`. Or one-shot: `npx wrangler pages deploy dist`.
-- **GitHub Pages:** push to `main` — `.github/workflows/deploy-pages.yml` builds
-  with the repo name as the base path and publishes automatically (set Pages
-  source to "GitHub Actions" once).
-
-## Design stance (enforced in code)
-
-- **The AI facilitates, it never decides.** It asks the gate's question, evaluates
-  evidence against the bar, and asks *at most one* probing follow-up. Advancing and
-  skipping are **UI actions** (`recordEvidence` in the store), never AI actions.
-- **Feedback before solutioning.** Gates 2 (Problem validation) and 5 (Solution
-  validation) are `isValidationGate: true`; skipping them is flagged loudest.
-- **Skipping is allowed but never hidden.** Every skip requires a one-line reason and
-  surfaces in the backlog with a "validation skipped" pill.
-- **Never fabricates.** The system prompt (`src/lib/anthropic.js`) forbids generating
-  evidence, inventing user feedback, or claiming validation happened.
+- **Board** of configurable columns, drag-reorderable cards with subtasks,
+  due dates, reminders, and six renamable color categories.
+- **Quick capture**: tap a column to add a task; paste a multiline list to
+  create one task per line; the same paste-splitting works for subtasks.
+- **Done / Deleted boards** — nothing is destroyed without a confirm; both
+  are drag-reorderable and have their own restore/move actions.
+- **Cross-device sync** via a small Cloudflare Worker relay, keyed by a
+  secret you generate in-app — no accounts.
+- **Cleanup schedules**: recurring nudges (daily/weekly/custom, optionally
+  scoped to a category) that walk you through the board one task at a time.
+- **AI assistant (BYOK)**: bring your own Anthropic/OpenAI/Gemini key and
+  manage the board by chat or voice — create, complete, delete, reschedule,
+  reorganise. Runs entirely from your browser to the provider's API.
+- **Installable PWA** with offline support.
 
 ## Stack & cost
 
@@ -55,42 +34,42 @@ their data stays in their own browser.
 |---|---|
 | Framework | React + Vite |
 | Styling | Tailwind CSS |
-| State | React state + a single `localStorage` JSON blob (`diligence_state_v1`) |
-| AI | Anthropic Messages API, **called directly from the browser with your own key** (BYOK) |
-| Hosting | Any free static host (Cloudflare Pages / GitHub Pages / Netlify) |
+| State | React state + a single `localStorage` JSON blob (`prodlog_board_v1`) |
+| Sync | Cloudflare Worker + KV (`sync-worker/`) — free tier |
+| AI | Anthropic / OpenAI / Gemini, called directly from the browser with your own key (BYOK) |
+| Hosting | GitHub Pages (static) |
 
-**$0 running cost.** No backend, no database, no server-side key. Your Anthropic key
-lives only in your browser and is sent only to Anthropic
-(`dangerouslyAllowBrowser: true`). Default model is `claude-opus-4-8`; switch to
-Sonnet/Haiku in Settings to lower BYOK spend.
-
-> The funnel works **without** a key using the built-in gate questions — AI
-> personalisation, probing, and ideation simply switch off until you add one.
+**$0 running cost.** No backend beyond the tiny sync relay, no database, no
+server-side AI key. Everything works with zero keys configured — sync and
+the AI assistant are both opt-in.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev      # local dev server (localStorage works here)
+npm run dev      # local dev server, http://localhost:5173
 npm run build    # static output in dist/ — deploy as-is
 ```
 
-> `localStorage` does **not** work inside the Claude.ai artifact sandbox. Run this on
-> a local dev server or a real deploy, not in an artifact.
+Push to `main` and `.github/workflows/deploy-pages.yml` builds and deploys
+automatically (Settings → Pages → Source = "GitHub Actions").
 
 ## Project structure
 
 ```
 src/
-  config/gates.js        # the 9-gate funnel — edit this to tune the product
-  lib/storage.js         # single-blob localStorage load/save + export/import
-  lib/anthropic.js       # BYOK browser client + the per-gate system prompt
-  lib/diligence.js       # diligence scoring + post-launch-review detection
-  store/StoreContext.jsx # state + actions (createDecision, recordEvidence, …)
-  components/            # Setup, Backlog, DecisionView, GatePanel, Journey, …
+  lib/storage.js          # single-blob localStorage load/save/export/import
+  lib/sync.js, merge.js   # cross-device sync + conflict merge
+  lib/assistant.js        # AI system prompt, action schema, executor
+  lib/ai.js                # multi-provider BYOK chat client
+  lib/cleanup.js           # recurring cleanup-schedule logic
+  store/StoreContext.jsx   # state + actions, undo/redo history
+  components/              # Board, Column, TaskCard, ArchiveList, AiChat, …
+sync-worker/                # Cloudflare Worker: the sync relay (separate deploy)
 ```
 
 ## Backup
 
-Use **Export** / **Import** in the header to save and restore your full decision
-history as JSON — the insurance against a cleared browser wiping everything.
+Menu → **Import backup** / **Export backup** saves and restores your full
+board as JSON — the insurance against a cleared browser, and a manual way to
+move a board between devices if you'd rather not use sync.

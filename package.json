@@ -1,9 +1,9 @@
 {
-  "name": "prodlog",
+  "name": "pino",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "ProdLog — a mobile-first personal task board. Capture, break down, and check off product work in seconds (local-first, zero-cost).",
+  "description": "Pino — a mobile-first personal task board. Capture, break down, and check off product work in seconds (local-first, zero-cost).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

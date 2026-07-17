@@ -1,5 +1,9 @@
-# ProdLog sync worker — a ~100-line blob store on Cloudflare's free tier.
+# Pino sync worker — a ~100-line blob store on Cloudflare's free tier.
 # One KV entry per sync key (hashed); the app pulls, merges locally, pushes.
+# NOTE: deployed name below is still "prodlog-sync" (pre-rebrand) — renaming
+# it means deploying under a new name/URL and updating DEFAULT_ENDPOINT in
+# src/lib/sync.js; every device would need the new app build before syncing
+# again. Left as-is pending that decision — see chat.
 name = "prodlog-sync"
 main = "src/index.js"
 compatibility_date = "2026-04-01"

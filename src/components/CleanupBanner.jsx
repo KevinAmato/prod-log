@@ -30,7 +30,7 @@ export default function CleanupBanner({ onStart }) {
           changed = true;
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             fireNotification(
-              'ProdLog',
+              'Pino',
               `🧹 Time to clean up${scopeLabel(c, state.categories)}`,
               `cleanup-${c.id}`,
             );
