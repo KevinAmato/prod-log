@@ -8,9 +8,8 @@
 // NUMBER from the snapshot ("7" or "7.2"), so resolution is exact. Fuzzy title
 // matching exists as a fallback for models that reference by name anyway.
 
-import { newId, MAX_CATEGORIES } from './storage.js';
+import { newId } from './storage.js';
 import { toLocalInput } from './reminders.js';
-import { computeNextAt } from './cleanup.js';
 import { chat, extractJson, getAiSettings, activeModel, describeError } from './ai.js';
 import { logAiExchange } from './aiLog.js';
 
@@ -217,7 +216,9 @@ export async function runAssistant({ state, actions, undo, history }) {
 export function buildSystemPrompt(state) {
   const { json } = buildSnapshot(state);
   const now = new Date();
-  return `You are the assistant inside Pino, a personal task board. You help the user manage tasks by voice or text: create, complete, delete, annotate, schedule and categorise. Be brief and friendly; confirm what you did.
+  return `You are the CAPTURE assistant inside Pino, a personal task board. Your only job is to turn what the user says into changes on THIS board — capturing new tasks and managing the tasks already on it. Be brief and friendly; confirm what you did.
+
+YOU DO NOT ACT IN THE OUTSIDE WORLD. You cannot send email, message or call anyone, buy anything, browse the web, or look anything up — you have no such tools and must never pretend to. An imperative like "email Sara the deck", "call the plumber back", "pay the gas bill", "text mum happy birthday" is NEVER something you perform: it is the TITLE of a task to create, captured essentially verbatim (→ create_task "Email Sara the deck"). When in doubt, capture it as a task — never perform it, and never ask whether it's a task.
 
 CURRENT LOCAL TIME: ${toLocalInput(now)} (${Intl.DateTimeFormat().resolvedOptions().timeZone}). Resolve relative times ("tomorrow 9am", "in 2 hours") against this.
 
@@ -246,14 +247,7 @@ ACTIONS:
 - {"type":"set_due","task":n or "n.m","due":"YYYY-MM-DD" or null}
 - {"type":"add_reminder","task":n or "n.m","at":"YYYY-MM-DDTHH:mm"}
 - {"type":"remove_reminder","task":n or "n.m","at":"YYYY-MM-DDTHH:mm"}   // "at" must exactly match an existing reminder from the snapshot above
-- {"type":"set_category","task":n,"category":string or null}
-- {"type":"create_category","name":string,"color"?:"#rrggbb"}   // add a new color category (the board holds at most ${MAX_CATEGORIES}); color optional — one is auto-assigned
-- {"type":"rename_category","category":string,"newName":string}
-- {"type":"delete_category","category":string}   // removes it and clears it off every task that used it
-- {"type":"create_column","name":string}
-- {"type":"rename_column","column":string,"newName":string}
-- {"type":"filter_column","column":string or "all","category":string or null,"overdue"?:boolean}
-- {"type":"create_cleanup","everyDays":number,"time":"HH:mm","categories"?:[string]}   // recurring review nudge; omit categories for "all tasks"
+- {"type":"set_category","task":n,"category":string or null}   // assign an EXISTING category (or null to clear); you cannot create categories
 - {"type":"undo_last","steps"?:number}   // undoes the most recent change(s) — use when the user says "undo that" / "undo the last thing"
 - {"type":"fetch_archive","boards":["done","deleted"]}   // see ARCHIVE below
 
@@ -300,15 +294,20 @@ RULES:
   Example: task 5's snapshot shows reminders ["2026-07-20T09:00"] and the user
   says "change task 5's reminder to 10am" → remove_reminder task 5 at
   "2026-07-20T09:00", then add_reminder task 5 at "2026-07-20T10:00".
-- Never rename a task, column, or category unless explicitly asked to rename/change it.
+- Never rename a task unless explicitly asked to rename/change its title.
 - Notes are append-only — you can add, never remove or rewrite.
 - You CANNOT sort tasks. If asked to sort, say the column menu (⇅) does that.
 - You cannot permanently destroy anything; "delete" moves to the Deleted board.
-- Category and column names may be approximate — match to the snapshot.
-- Categories are user-managed (up to ${MAX_CATEGORIES}). If the user asks to add
-  categories, use create_category — do NOT refuse or claim they're fixed. If
-  they want a task in a category that doesn't exist yet, create_category first,
-  then set_category (or create_task with that category name).
+- Category and column names may be approximate — match them to the snapshot.
+- You do NOT create, rename, or delete categories or columns, set column
+  filters, or make cleanup schedules — those are done in the app, not by you.
+  You can only ASSIGN a task to an EXISTING category (set_category) or move it
+  to an EXISTING column. If the user asks to add/rename/remove a category or
+  column (or set a filter or cleanup), don't attempt it — briefly tell them
+  where: categories via a task's colour dot → "Edit"; columns via "+ Add
+  column" or a column's ⋯ menu. If they want a task in a category or column
+  that doesn't exist yet, put the task in the best existing column and mention
+  it isn't set up yet.
 - If the request is ambiguous, ask a clarifying question with empty actions.
 - If the snapshot's "note" field says tasks were omitted for length, and the
   user's request seems to depend on one of those omitted tasks, say so rather
@@ -365,12 +364,10 @@ export function executeActions(rawActions, snapshot, state, actions, undo) {
   const ok = (msg, destructive = false) => receipts.push({ text: `✓ ${msg}`, destructive });
   const fail = (msg) => receipts.push({ text: `✗ ${msg}`, destructive: false });
 
-  // Columns/categories can be created or renamed mid-batch ("create a column
-  // called Waiting, then move task 3 there") — track them locally so later
-  // actions in the SAME batch resolve names the real store already has but
-  // this function's `state` snapshot (captured before the batch ran) doesn't.
-  let columns = state.columns;
-  let categories = state.categories;
+  // The assistant only ASSIGNS to existing columns/categories now (it can't
+  // create or rename them — that's UI-only), so these are just the current set.
+  const columns = state.columns;
+  const categories = state.categories;
 
   for (const a of Array.isArray(rawActions) ? rawActions : []) {
     try {
@@ -608,115 +605,21 @@ export function executeActions(rawActions, snapshot, state, actions, undo) {
           break;
         }
 
-        case 'create_category': {
-          if (!a.name?.trim()) {
-            fail('create_category without a name');
-            break;
-          }
-          if (categories.length >= MAX_CATEGORIES) {
-            fail(`already at the ${MAX_CATEGORIES}-category limit — delete one first`);
-            break;
-          }
-          const name = a.name.trim();
-          const color = /^#[0-9a-fA-F]{6}$/.test(a.color || '') ? a.color : undefined;
-          const newCatId = actions.addCategory(name, color);
-          // Track locally so a later set_category in this same batch resolves it.
-          categories = [...categories, { id: newCatId, name, color: color || '#888888' }];
-          ok(`Added category "${name}"`);
-          break;
-        }
-
-        case 'rename_category': {
-          const c = resolveCategory(a.category, categories);
-          if (!c.hit) {
-            fail(`rename category: ${c.error}`);
-            break;
-          }
-          if (!a.newName?.trim()) {
-            fail('rename category without a new name');
-            break;
-          }
-          actions.renameCategory(c.hit.id, a.newName.trim());
-          categories = categories.map((k) =>
-            k.id === c.hit.id ? { ...k, name: a.newName.trim() } : k,
+        // Retired from the assistant — categories, columns, filters and cleanup
+        // schedules are managed in the app now, not by voice/chat. The prompt no
+        // longer offers these, but a model may still emit one from habit; answer
+        // with a helpful pointer instead of a cryptic "unknown action".
+        case 'create_category':
+        case 'rename_category':
+        case 'delete_category':
+        case 'create_column':
+        case 'rename_column':
+        case 'filter_column':
+        case 'create_cleanup':
+          fail(
+            `${a.type.replace(/_/g, ' ')} isn't something I do — manage categories, columns, filters and cleanups in the app`,
           );
-          ok(`Renamed category "${c.hit.name}" → "${a.newName.trim()}"`);
           break;
-        }
-
-        case 'delete_category': {
-          const c = resolveCategory(a.category, categories);
-          if (!c.hit) {
-            fail(`delete category: ${c.error}`);
-            break;
-          }
-          actions.removeCategory(c.hit.id);
-          categories = categories.filter((k) => k.id !== c.hit.id);
-          ok(`Deleted category "${c.hit.name}"`, true);
-          break;
-        }
-
-        case 'create_column': {
-          if (!a.name?.trim()) {
-            fail('create_column without a name');
-            break;
-          }
-          const name = a.name.trim();
-          const newColId = actions.addColumn(name);
-          columns = [...columns, { id: newColId, name }];
-          ok(`Added column "${name}"`);
-          break;
-        }
-
-        case 'rename_column': {
-          const col = resolveColumn(a.column, columns);
-          if (!col.hit) {
-            fail(`rename column: ${col.error}`);
-            break;
-          }
-          if (!a.newName?.trim()) {
-            fail('rename column without a new name');
-            break;
-          }
-          actions.renameColumn(col.hit.id, a.newName.trim());
-          columns = columns.map((c) =>
-            c.id === col.hit.id ? { ...c, name: a.newName.trim() } : c,
-          );
-          ok(`Renamed column "${col.hit.name}" → "${a.newName.trim()}"`);
-          break;
-        }
-
-        case 'create_cleanup': {
-          const everyDays = Number(a.everyDays);
-          if (!Number.isFinite(everyDays) || everyDays < 1) {
-            fail(`create_cleanup: "${a.everyDays}" isn't a valid day count`);
-            break;
-          }
-          const time = /^\d{2}:\d{2}$/.test(a.time) ? a.time : '18:00';
-          let categoryIds = [];
-          if (Array.isArray(a.categories) && a.categories.length) {
-            const resolved = a.categories.map((name) => resolveCategory(name, categories));
-            const bad = resolved.find((r) => !r.hit);
-            if (bad) {
-              fail(`create_cleanup: ${bad.error}`);
-              break;
-            }
-            categoryIds = resolved.map((r) => r.hit.id);
-          }
-          const schedule = {
-            id: newId(),
-            everyDays,
-            time,
-            nextAt: computeNextAt(everyDays, time),
-            categoryIds,
-          };
-          actions.setCleanups([...(state.cleanups || []), schedule]);
-          const scope = categoryIds.length
-            ? categoryIds.map((id) => categories.find((c) => c.id === id)?.name).join(', ')
-            : 'all tasks';
-          ok(`New cleanup schedule: every ${everyDays} day(s) at ${time} — ${scope}`);
-          break;
-        }
 
         case 'undo_last': {
           if (typeof undo !== 'function') {
